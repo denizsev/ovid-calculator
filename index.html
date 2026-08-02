@@ -20,6 +20,7 @@
 
     <!-- DISPLAY -->
     <div id="display">
+        <div class="memory-badge" id="memoryBadge" aria-hidden="true">M</div>
         <div class="top">0</div>
         <div class="bottom">0</div>
     </div>
@@ -29,25 +30,35 @@
     <!-- BUTTONS -->
     <div class="buttons">
 
-        <button id="clear">C</button>
-        <button id="backspace">⌫</button>
-        <button id="plusminus">+/-</button>
-        <button id="divide">/</button>
+        <button id="memClear" class="fn mem" title="Memory Clear" aria-label="Memory Clear">MC</button>
+        <button id="memRecall" class="fn mem" title="Memory Recall" aria-label="Memory Recall">MR</button>
+        <button id="memAdd" class="fn mem" title="Memory Add" aria-label="Memory Add">M+</button>
+        <button id="memSubtract" class="fn mem" title="Memory Subtract" aria-label="Memory Subtract">M-</button>
+
+        <button id="openParen" class="fn sci" title="Open parenthesis" aria-label="Open parenthesis">(</button>
+        <button id="closeParen" class="fn sci" title="Close parenthesis" aria-label="Close parenthesis">)</button>
+        <button id="percent" class="fn sci" title="Percent" aria-label="Percent">%</button>
+        <button id="sqrt" class="fn sci" title="Square root" aria-label="Square root">√</button>
+
+        <button id="clear" title="Clear">C</button>
+        <button id="backspace" title="Backspace" aria-label="Backspace">⌫</button>
+        <button id="plusminus" title="Toggle sign" aria-label="Toggle sign">+/-</button>
+        <button id="divide" class="op">/</button>
 
         <button class="num">7</button>
         <button class="num">8</button>
         <button class="num">9</button>
-        <button id="times">*</button>
+        <button id="times" class="op">*</button>
 
         <button class="num">4</button>
         <button class="num">5</button>
         <button class="num">6</button>
-        <button id="minus">-</button>
+        <button id="minus" class="op">-</button>
 
         <button class="num">1</button>
         <button class="num">2</button>
         <button class="num">3</button>
-        <button id="plus">+</button>
+        <button id="plus" class="op">+</button>
 
         <button class="num zero">0</button>
         <button class="num">.</button>
