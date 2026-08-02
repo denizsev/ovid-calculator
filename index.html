@@ -1,9 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ovid Calculator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,7 +15,16 @@
    <source src="images/spacetravel-loop.mp4" type="video/mp4">
 </video>
 
-<div class="app-title">OVID CALCULATOR</div>
+<header class="app-header">
+    <div class="app-title">OVID CALCULATOR</div>
+
+    <button id="history-toggle" class="icon-btn" type="button" aria-label="Geçmişi göster" aria-expanded="false" title="Geçmiş">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
+            <polyline points="12 7 12 12 15 14"></polyline>
+        </svg>
+    </button>
+</header>
 
 <main class="main-section">
 
@@ -20,34 +32,52 @@
 
     <!-- DISPLAY -->
     <div id="display">
-        <div class="top">0</div>
-        <div class="bottom">0</div>
+        <div class="memory-indicator" id="memory-indicator">M</div>
+        <div class="top" id="expr-line">0</div>
+        <div class="bottom copyable" id="result-line" title="Kopyalamak için tıkla">0</div>
     </div>
 
     <div class="calculator-divider" aria-hidden="true"></div>
+
+    <!-- SCIENTIFIC / MEMORY ROW -->
+    <div class="sci-buttons">
+        <div class="sci-row memory-row">
+            <button class="sci" id="mc" title="Belleği temizle">MC</button>
+            <button class="sci" id="mr" title="Belleği getir">MR</button>
+            <button class="sci" id="mplus" title="Belleğe ekle">M+</button>
+            <button class="sci" id="mminus" title="Bellekten çıkar">M-</button>
+        </div>
+        <div class="sci-row function-row">
+            <button class="sci" id="paren-open">(</button>
+            <button class="sci" id="paren-close">)</button>
+            <button class="sci" id="sqrt">√</button>
+            <button class="sci" id="square">x²</button>
+            <button class="sci" id="percent">%</button>
+        </div>
+    </div>
 
     <!-- BUTTONS -->
     <div class="buttons">
 
         <button id="clear">C</button>
         <button id="backspace">⌫</button>
-        <button id="plusminus">+/-</button>
-        <button id="divide">/</button>
+        <button id="plusminus">±</button>
+        <button id="divide" class="operator">÷</button>
 
         <button class="num">7</button>
         <button class="num">8</button>
         <button class="num">9</button>
-        <button id="times">*</button>
+        <button id="times" class="operator">×</button>
 
         <button class="num">4</button>
         <button class="num">5</button>
         <button class="num">6</button>
-        <button id="minus">-</button>
+        <button id="minus" class="operator">−</button>
 
         <button class="num">1</button>
         <button class="num">2</button>
         <button class="num">3</button>
-        <button id="plus">+</button>
+        <button id="plus" class="operator">+</button>
 
         <button class="num zero">0</button>
         <button class="num">.</button>
@@ -57,12 +87,23 @@
 
 </section>
 
+<aside class="history-panel" id="history-panel" aria-hidden="true">
+    <div class="history-header">
+        <span>Geçmiş</span>
+        <button id="history-clear" class="text-btn" type="button">Temizle</button>
+    </div>
+    <ul id="history-list" class="history-list"></ul>
+</aside>
+
 </main>
+
 <footer class="calc-footer">
 
     Powered by Deniz • Ovid Calculator
 
 </footer>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="myJava.js"></script>
 </body>
