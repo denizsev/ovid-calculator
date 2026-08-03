@@ -46,13 +46,18 @@ Araştırma tarihi: Ağustos 2026.
 ## 2. Bu projede ŞU AN yapılmış olanlar
 
 ### Mimari
-- [x] `eval()` / `Function()` tamamen kaldırıldı → **tokenizer + shunting-yard + RPN** motoru
+- [x] `eval()` / `Function()` tamamen kaldırıldı → **tokenizer + shunting-yard + AST** motoru
+- [x] Sayılar `Quantity` tipine taşındı: değer + hata payı + boyut vektörü
+- [x] RPN'den **AST** kuruluyor; adım adım indirgeme bunun üstünde çalışıyor
 - [x] Doğru operatör önceliği: `2^3^2 = 512` (sağdan birleşme), `-2^2 = -4`
 - [x] Örtük çarpma: `2π`, `2(3+4)`, `2sin(30)`
 - [x] Canlı önizleme için parantezler otomatik kapatılıyor
 - [x] Servis çalışanı (service worker) + manifest → **çevrimdışı çalışır, kurulabilir (PWA)**
 
 ### Özellikler
+- [x] **Belirsizlik aritmetiği** (`±σ` tuşu) — hata payı yayılımı
+- [x] **Birim farkındalıklı hesap** — "Birimler" panelinden birim ekle
+- [x] **Warp modu** (`⇢` çipi) — sonucu adım adım göster
 - [x] **Canlı önizleme** — `=` basmadan sonuç görünür (soluk cyan), basınca kesinleşir
 - [x] Bilimsel pad (açılır/kapanır `fx`): sin, cos, tan + `2nd` ile asin/acos/atan, ln, log, 10ˣ, x^y, 1/x, n!, mod, π, e, rnd
 - [x] **DEG / RAD** geçişi (kalıcı)
@@ -102,38 +107,40 @@ Araştırma tarihi: Ağustos 2026.
 ## 4. İNOVASYON — kimsede olmayan fikirler
 
 Ovid'in teması uzay. Bu bir dekorasyon olarak kalmamalı, **ürün tezine**
-dönüşmeli. Öneri: *"büyüklük mertebeleriyle düşünenler için hesap makinesi."*
+dönüşmeli. Tez: *"büyüklük mertebeleriyle düşünenler için hesap makinesi."*
 
-### A. Belirsizlik (hata payı) aritmetiği ⭐ en ayırt edici
-`5.2±0.1 × 3` yazınca sonucun hata payı da hesaplansın: `15.6±0.3`.
-Her mühendislik/fizik öğrencisinin elle yaptığı, **hiçbir popüler web
-hesap makinesinde olmayan** bir şey. Gerçek bilimsel değeri var.
+### ✅ A. Belirsizlik (hata payı) aritmetiği — YAPILDI
+`5.2±0.1 × 3` → `15.6 ± 0.3`. Gauss hata yayılımı, her işlem için analitik
+türevlerle (fonksiyonlar dahil). Hiçbir popüler web hesap makinesinde yok.
+Hata payı, kendi büyüklüğüne göre anlamlı basamağa yuvarlanıyor.
 
-### B. Birim farkındalıklı aritmetik
-`5 km + 300 m` → `5.3 km`. `100 km / 2 saat` → `50 km/h`.
-Soulver'da var ama ücretli ve masaüstü. Ücretsiz web'de tuş takımıyla yok.
+### ✅ B. Birim farkındalıklı aritmetik — YAPILDI
+`5 km + 300 m` → `5.3 km`. `100 km / 2 h` → `50 km/h`. `2m × 3m` → `6 m^2`.
+Boyut vektörü [uzunluk, kütle, zaman, veri] ile gerçek boyut analizi;
+uyumsuz birimler (`5km + 3kg`) hata veriyor, `km/km` sadeleşiyor.
 
-### C. "Ne olurdu?" kaydırıcıları
+### ✅ E. Warp modu — YAPILDI
+`=` basınca `2 + 3 × 4` → `2 + 12` → `14` şeklinde adım adım sadeleşiyor.
+AST üzerinde soldan-içten indirgeme, yani insanın izlediği sıra.
+Symbolab'ın eğitim değeri + Ovid'in uzay dili.
+
+### C. "Ne olurdu?" kaydırıcıları — SIRADA
 İfadedeki bir sayıya dokun → kaydırıcıya dönüşsün, sonuç canlı değişsin.
 Desmos'un grafik sezgisini basit aritmetiğe taşır. Keşif aracı hâline gelir.
+*Not: AST altyapısı artık hazır, bu fikir çok daha kolay uygulanabilir.*
 
 ### D. Takımyıldız geçmişi
 Her hesap arka planda bir yıldıza dönüşsün; yıldıza tıklayınca o hesap geri gelsin.
 Geçmişi listeden **mekânsal hafızaya** çevirir — temayla birebir örtüşür.
 
-### E. Warp modu — işlem önceliği görselleştirmesi
-`=` basınca sonuç bir anda çıkmasın; ifade adım adım "sıçrayarak" sadeleşsin
-(`2+3×4` → `2+12` → `14`), her adımda çözülen kısım parlasın.
-Symbolab'ın eğitim değeri + Ovid'in uzay dili.
-
 ### F. Kozmik ölçek çevirisi
-Sonucun yanında sezgisel karşılığı: "1.2×10¹² m ≈ Güneş'ten 8 AU uzaklık",
-"4.5×10¹⁶ s ≈ evrenin yaşının 1/10'u". Sayıyı **anlamlı** kılar.
+Sonucun yanında sezgisel karşılığı: "1.2×10¹² m ≈ Güneş'ten 8 AU uzaklık".
+Birim motoru hazır olduğu için artık kolay: sonucun boyutuna bakıp
+tanıdık bir sabite oranla.
 
 ### G. Yörünge mekaniği paketi
 Kaçış hızı, delta-v (Tsiolkovsky), yörünge periyodu, ışığın yol süresi.
-Uzay temalı bir sitenin gerçekten uzay matematiği yapması,
-temayı süsten işlevselliğe çevirir.
+Birim farkındalıklı motor bunun için doğru temeli zaten sağlıyor.
 
 ### Neden bu kombinasyon eşsiz?
 Piyasada üç grup var: (1) genel amaçlı devler (calculator.net), (2) eğitim
