@@ -307,9 +307,17 @@ function qPow(a, b) {
     return new Quantity(value, Math.hypot(dBase, dExp), scaleDim(a.dim, b.v), unit, exact);
 }
 
+/* JavaScript's % is a remainder, not a modulo: -7 % 3 is -1, while the
+   mathematical convention gives 2. Follow the sign of the divisor, which is
+   what every number-theory text (and Python) does. */
 function qMod(a, b) {
     if (!sameDim(a.dim, b.dim)) throw new Error("Birimler uyuşmuyor");
-    return new Quantity(a.v % b.v, a.u, a.dim, a.unit);
+    if (b.v === 0) throw new Error("Sıfıra göre mod alınamaz");
+
+    const value = ((a.v % b.v) + b.v) % b.v;
+
+    // uncertainty is discontinuous across the wrap, so it is not carried
+    return new Quantity(value, 0, a.dim, a.unit);
 }
 
 function qNeg(a) {
@@ -348,25 +356,73 @@ function radPerUnit() {
     return angleMode === "DEG" ? Math.PI / 180 : 1;
 }
 
+/* `domain` returns an error message when the input is outside the function's
+   domain. Without it these silently produced NaN and the user was told
+   "Tanımsız sonuç" with no idea which argument was at fault. */
 const FUNCTIONS = {
     sin: { f: x => Math.sin(toRadians(x)), df: x => Math.cos(toRadians(x)) * radPerUnit() },
     cos: { f: x => Math.cos(toRadians(x)), df: x => -Math.sin(toRadians(x)) * radPerUnit() },
-    tan: { f: x => Math.tan(toRadians(x)), df: x => radPerUnit() / Math.pow(Math.cos(toRadians(x)), 2) },
-    asin: { f: x => fromRadians(Math.asin(x)), df: x => 1 / (Math.sqrt(1 - x * x) * radPerUnit()) },
-    acos: { f: x => fromRadians(Math.acos(x)), df: x => -1 / (Math.sqrt(1 - x * x) * radPerUnit()) },
+    tan: {
+        f: x => Math.tan(toRadians(x)),
+        df: x => radPerUnit() / Math.pow(Math.cos(toRadians(x)), 2),
+        // cos(90°) is not exactly 0 in binary, so tan(90) returned 1.6e16
+        domain: x => Math.abs(Math.cos(toRadians(x))) < 1e-12
+            ? "tan burada tanımsız (90° + k·180°)"
+            : null
+    },
+    asin: {
+        f: x => fromRadians(Math.asin(x)),
+        df: x => 1 / (Math.sqrt(1 - x * x) * radPerUnit()),
+        domain: x => (x < -1 || x > 1) ? "asin girdisi −1 ile 1 arasında olmalı" : null
+    },
+    acos: {
+        f: x => fromRadians(Math.acos(x)),
+        df: x => -1 / (Math.sqrt(1 - x * x) * radPerUnit()),
+        domain: x => (x < -1 || x > 1) ? "acos girdisi −1 ile 1 arasında olmalı" : null
+    },
     atan: { f: x => fromRadians(Math.atan(x)), df: x => 1 / ((1 + x * x) * radPerUnit()) },
-    ln: { f: Math.log, df: x => 1 / x },
-    log: { f: Math.log10, df: x => 1 / (x * Math.LN10) },
+    ln: {
+        f: Math.log,
+        df: x => 1 / x,
+        domain: x => x < 0 ? "ln negatif sayı için tanımsız" : (x === 0 ? "ln(0) tanımsız" : null)
+    },
+    log: {
+        f: Math.log10,
+        df: x => 1 / (x * Math.LN10),
+        domain: x => x < 0 ? "log negatif sayı için tanımsız" : (x === 0 ? "log(0) tanımsız" : null)
+    },
     exp: { f: Math.exp, df: Math.exp },
-    sqrt: { f: Math.sqrt, df: x => 1 / (2 * Math.sqrt(x)) },
+    sqrt: {
+        f: Math.sqrt,
+        df: x => 1 / (2 * Math.sqrt(x)),
+        domain: x => x < 0 ? "Negatif sayının karekökü alınamaz" : null
+    },
     abs: { f: Math.abs, df: x => Math.sign(x) }
 };
+
+/* An exact square root stays exact: sqrt(4/9) is 2/3, not 0.666… */
+function ratSqrt(r) {
+    if (!r || r.n < 0n) return null;
+
+    const isqrt = (value) => {
+        if (value < 2n) return value;
+        let x = value, y = (x + 1n) / 2n;
+        while (y < x) { x = y; y = (x + value / x) / 2n; }
+        return x;
+    };
+
+    const rootN = isqrt(r.n);
+    const rootD = isqrt(r.d);
+
+    return (rootN * rootN === r.n && rootD * rootD === r.d) ? rat(rootN, rootD) : null;
+}
 
 function qApplyFunction(name, a) {
     const fn = FUNCTIONS[name];
 
     // sqrt is the one function that is meaningful on a dimensioned value
     if (name === "sqrt" && !isDimless(a.dim)) {
+        if (a.v < 0) throw new Error("Negatif sayının karekökü alınamaz");
         if (a.dim.some(d => d % 2 !== 0)) throw new Error("Bu birimin karekökü alınamaz");
         return new Quantity(
             Math.sqrt(a.v),
@@ -376,7 +432,15 @@ function qApplyFunction(name, a) {
     }
 
     requireDimless(a, name + " girdisi");
-    return new Quantity(fn.f(a.v), Math.abs(fn.df(a.v)) * a.u);
+
+    if (fn.domain) {
+        const problem = fn.domain(a.v);
+        if (problem) throw new Error(problem);
+    }
+
+    const exact = name === "sqrt" ? ratSqrt(a.r) : null;
+
+    return new Quantity(fn.f(a.v), Math.abs(fn.df(a.v)) * a.u, DIMLESS, null, exact);
 }
 
 // =====================================================================
@@ -475,7 +539,9 @@ function tokenize(input) {
 
         // number, optionally "±uncertainty" and/or a unit suffix
         if (/[0-9.]/.test(ch)) {
+            const numStart = i;
             const raw = readNumber();
+            const numEnd = i;
             let uncertRaw = "0";
             let unit = null;
 
@@ -504,7 +570,11 @@ function tokenize(input) {
                 raw,
                 value: parseFloat(raw),
                 uncert: parseFloat(uncertRaw),
-                unit
+                uncertRaw: uncertRaw === "0" ? null : uncertRaw,
+                unit,
+                // where the digits sit in the source, so a slider can rewrite them
+                numStart,
+                numEnd
             });
             continue;
         }
@@ -918,10 +988,61 @@ function fitResult() {
     resultLine.classList.toggle("shrink-3", length > 26);
 }
 
-function updateDisplay() {
-    exprLine.textContent = prettify(expression);
+/* Renders the expression as chips so any number in it can be grabbed and
+   turned into a slider. Falls back to plain text while the expression is
+   still half-typed and cannot be tokenised. */
+function renderExpression() {
+    let tokens;
+    try {
+        tokens = tokenize(expression);
+    } catch (e) {
+        exprLine.textContent = prettify(expression);
+        return;
+    }
 
-    // live preview — the answer appears before you press "="
+    exprLine.textContent = "";
+
+    tokens.forEach(token => {
+        if (token.type === "number") {
+            const chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "num-chip";
+            chip.dataset.start = token.numStart;
+            chip.dataset.end = token.numEnd;
+
+            let label = token.raw;
+            if (token.uncertRaw) label += "±" + token.uncertRaw;
+            if (token.unit) label += " " + token.unit;
+
+            chip.textContent = label;
+            chip.title = "Kaydırıcıya çevirmek için tıkla";
+            chip.setAttribute("aria-label", label + " — kaydırıcı aç");
+
+            chip.addEventListener("click", (event) => {
+                event.stopPropagation();
+                openSlider(Number(chip.dataset.start), Number(chip.dataset.end));
+            });
+
+            exprLine.appendChild(chip);
+            return;
+        }
+
+        const span = document.createElement("span");
+
+        if (token.type === "operator") {
+            span.textContent = " " + (OP_SYMBOLS[token.value] || token.value) + " ";
+        } else if (token.type === "function") {
+            span.textContent = token.value;
+        } else {
+            span.textContent = token.value;
+        }
+
+        exprLine.appendChild(span);
+    });
+}
+
+// live preview — the answer appears before "=" is pressed
+function refreshPreview() {
     try {
         const value = evaluate(expression);
         if (value && !Number.isNaN(value.v)) {
@@ -934,6 +1055,90 @@ function updateDisplay() {
     resultLine.classList.add("preview");
     fitResult();
 }
+
+function updateDisplay() {
+    renderExpression();
+    refreshPreview();
+}
+
+// =====================================================================
+// "NE OLURDU?" — turn a number in the expression into a live slider
+// =====================================================================
+
+let sliderTarget = null; // { start, end, original }
+
+function niceStep(span) {
+    const raw = span / 100;
+    const magnitude = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+    const normalised = raw / magnitude;
+    const rounded = normalised >= 5 ? 5 : normalised >= 2 ? 2 : 1;
+    return rounded * magnitude;
+}
+
+function openSlider(start, end) {
+    const text = expression.slice(start, end);
+    const value = parseFloat(text);
+    if (!isFinite(value)) return;
+
+    // a range that keeps the current value in the middle and stays intuitive
+    const reach = Math.abs(value) > 0 ? Math.abs(value) : 10;
+    const min = value - reach;
+    const max = value + reach;
+    const step = niceStep(max - min);
+
+    sliderTarget = { start, end, original: text };
+
+    const range = $("whatif-range");
+    range.min = String(min);
+    range.max = String(max);
+    range.step = String(step);
+    range.value = String(value);
+
+    $("whatif-min").textContent = formatNumber(min);
+    $("whatif-max").textContent = formatNumber(max);
+    $("whatif-label").textContent = text;
+    $("whatif").hidden = false;
+
+    highlightSliderChip();
+    playTick(1180);
+}
+
+function highlightSliderChip() {
+    document.querySelectorAll(".num-chip").forEach(chip => {
+        chip.classList.toggle(
+            "active",
+            sliderTarget !== null && Number(chip.dataset.start) === sliderTarget.start
+        );
+    });
+}
+
+function closeSlider() {
+    sliderTarget = null;
+    $("whatif").hidden = true;
+    highlightSliderChip();
+}
+
+$("whatif-close").addEventListener("click", closeSlider);
+
+$("whatif-range").addEventListener("input", (event) => {
+    if (!sliderTarget) return;
+
+    const text = String(Number(Number(event.target.value).toPrecision(12)));
+
+    expression =
+        expression.slice(0, sliderTarget.start) +
+        text +
+        expression.slice(sliderTarget.end);
+
+    // the replacement changes the length, so the target must follow it
+    sliderTarget.end = sliderTarget.start + text.length;
+
+    $("whatif-label").textContent = text;
+
+    renderExpression();
+    refreshPreview();
+    highlightSliderChip();
+});
 
 function showMessage(message) {
     exprLine.textContent = message;
@@ -951,6 +1156,10 @@ function announce(text) {
 // =====================================================================
 
 function pushUndo() {
+    // every editing action goes through here, and any of them invalidates the
+    // slider's recorded offsets, so this is the one place to retire it
+    if (typeof closeSlider === "function") closeSlider();
+
     undoStack.push(expression);
     if (undoStack.length > 100) undoStack.shift();
     redoStack.length = 0;
@@ -1267,9 +1476,39 @@ function applyUnary(fn) {
     updateDisplay();
 }
 
+/* The percent key everyone expects: "50 + 10%" is 55, not 50.1, because the
+   10% is read as a share OF the left operand. After × and ÷ it stays a plain
+   hundredth, which is what those cases mean. */
+function applyPercent() {
+    const info = extractTrailingNumber(expression);
+    if (!info) return;
+
+    const before = expression.slice(0, info.start);
+    const operator = before.trim().slice(-1);
+
+    if ((operator === "+" || operator === "-") && before.length > 1) {
+        const baseText = before.trim().slice(0, -1);
+
+        try {
+            const base = evaluate(baseText);
+            if (base && isFinite(base.v)) {
+                const share = (base.v * info.value) / 100;
+                pushUndo();
+                expression = before + String(Number(share.toPrecision(12)));
+                updateDisplay();
+                return;
+            }
+        } catch (e) {
+            /* left side is not evaluable on its own: fall through */
+        }
+    }
+
+    applyUnary(v => v / 100);
+}
+
 $("sqrt").addEventListener("click", () => applyUnary(Math.sqrt));
 $("square").addEventListener("click", () => applyUnary(v => v * v));
-$("percent").addEventListener("click", () => applyUnary(v => v / 100));
+$("percent").addEventListener("click", applyPercent);
 $("inverse").addEventListener("click", () => applyUnary(v => 1 / v));
 
 // =====================================================================
@@ -1940,6 +2179,235 @@ $("convert-use").addEventListener("click", () => {
 populateUnits();
 
 // =====================================================================
+// ARAÇLAR — number theory, base conversion, list statistics
+// =====================================================================
+
+const NT_LIMIT = 1e12; // trial division stays instant below this
+
+function primeFactors(n) {
+    const factors = [];
+
+    for (let d = 2; d * d <= n; d += (d === 2 ? 1 : 2)) {
+        while (n % d === 0) {
+            factors.push(d);
+            n /= d;
+        }
+    }
+
+    if (n > 1) factors.push(n);
+    return factors;
+}
+
+function groupFactors(factors) {
+    const groups = [];
+
+    factors.forEach(f => {
+        const last = groups[groups.length - 1];
+        if (last && last.base === f) last.exp++;
+        else groups.push({ base: f, exp: 1 });
+    });
+
+    return groups;
+}
+
+function divisorsOf(n) {
+    const small = [];
+    const large = [];
+
+    for (let d = 1; d * d <= n; d++) {
+        if (n % d !== 0) continue;
+        small.push(d);
+        if (d !== n / d) large.push(n / d);
+    }
+
+    return small.concat(large.reverse());
+}
+
+const gcdOf = (a, b) => b ? gcdOf(b, a % b) : Math.abs(a);
+const lcmOf = (a, b) => (!a || !b) ? 0 : Math.abs(a * b) / gcdOf(a, b);
+
+function renderRow(container, label, value) {
+    const row = document.createElement("div");
+    row.className = "tool-row";
+
+    const key = document.createElement("span");
+    key.className = "tool-key";
+    key.textContent = label;
+
+    const val = document.createElement("span");
+    val.className = "tool-val";
+    val.textContent = value;
+
+    row.append(key, val);
+    container.appendChild(row);
+}
+
+function renderNumberTheory() {
+    const box = $("nt-result");
+    box.textContent = "";
+
+    const n = Number($("nt-input").value);
+
+    if (!Number.isInteger(n) || n < 1) {
+        renderRow(box, "Uyarı", "1 veya daha büyük bir tam sayı gir");
+        return;
+    }
+    if (n > NT_LIMIT) {
+        renderRow(box, "Uyarı", "Bu araç 10^12'ye kadar çalışır");
+        return;
+    }
+
+    const factors = primeFactors(n);
+    const groups = groupFactors(factors);
+
+    const notation = n === 1
+        ? "1 (asal çarpanı yok)"
+        : groups.map(g => g.exp === 1 ? g.base : g.base + "^" + g.exp).join(" × ");
+
+    renderRow(box, "Asal çarpanlar", notation);
+    renderRow(box, "Asal mı?", factors.length === 1 && n > 1 ? "Evet" : "Hayır");
+
+    const divisors = divisorsOf(n);
+    renderRow(box, "Bölen sayısı", String(divisors.length));
+    renderRow(box, "Bölenler toplamı", String(divisors.reduce((s, d) => s + d, 0)));
+
+    const shown = divisors.length > 24
+        ? divisors.slice(0, 24).join(", ") + " …"
+        : divisors.join(", ");
+    renderRow(box, "Bölenler", shown);
+}
+
+function renderNumberPair() {
+    const box = $("nt-pair");
+    box.textContent = "";
+
+    const a = Number($("nt-input").value);
+    const b = Number($("nt-second").value);
+
+    if (!Number.isInteger(a) || !Number.isInteger(b) || a < 1 || b < 1) return;
+    if (a > NT_LIMIT || b > NT_LIMIT) return;
+
+    renderRow(box, "OBEB (" + a + ", " + b + ")", String(gcdOf(a, b)));
+    renderRow(box, "OKEK (" + a + ", " + b + ")", String(lcmOf(a, b)));
+    renderRow(box, "Aralarında asal mı?", gcdOf(a, b) === 1 ? "Evet" : "Hayır");
+}
+
+["nt-input", "nt-second"].forEach(id => {
+    $(id).addEventListener("input", () => {
+        renderNumberTheory();
+        renderNumberPair();
+    });
+});
+
+// ---- base conversion ----
+
+function renderBases() {
+    const box = $("base-result");
+    box.textContent = "";
+
+    const raw = $("base-input").value.trim();
+    const from = Number($("base-from").value);
+
+    if (!raw) return;
+
+    const negative = raw.startsWith("-");
+    const digits = negative ? raw.slice(1) : raw;
+
+    const allowed = "0123456789abcdefghijklmnopqrstuvwxyz".slice(0, from);
+    if (!digits.length || [...digits.toLowerCase()].some(c => !allowed.includes(c))) {
+        renderRow(box, "Uyarı", from + " tabanında geçersiz bir sayı");
+        return;
+    }
+
+    let value;
+    try {
+        value = [...digits.toLowerCase()].reduce(
+            (acc, c) => acc * BigInt(from) + BigInt(allowed.indexOf(c)),
+            0n
+        );
+    } catch (e) {
+        renderRow(box, "Uyarı", "Sayı okunamadı");
+        return;
+    }
+
+    if (negative) value = -value;
+
+    renderRow(box, "Onluk (10)", value.toString(10));
+    renderRow(box, "İkilik (2)", value.toString(2));
+    renderRow(box, "Sekizlik (8)", value.toString(8));
+    renderRow(box, "Onaltılık (16)", value.toString(16).toUpperCase());
+
+    if (value >= 0n && value <= 0xffffffffn) {
+        renderRow(box, "Bit sayısı", value.toString(2).length + " bit");
+    }
+}
+
+$("base-input").addEventListener("input", renderBases);
+$("base-from").addEventListener("change", renderBases);
+
+// ---- list statistics ----
+
+function renderStats() {
+    const box = $("stat-result");
+    box.textContent = "";
+
+    const numbers = $("stat-input").value
+        .split(/[\s,;]+/)
+        .filter(Boolean)
+        .map(Number)
+        .filter(Number.isFinite);
+
+    if (!numbers.length) {
+        renderRow(box, "Uyarı", "En az bir sayı gir");
+        return;
+    }
+
+    const n = numbers.length;
+    const sorted = [...numbers].sort((a, b) => a - b);
+    const sum = numbers.reduce((s, x) => s + x, 0);
+    const mean = sum / n;
+
+    const median = n % 2
+        ? sorted[(n - 1) / 2]
+        : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
+
+    const counts = new Map();
+    numbers.forEach(x => counts.set(x, (counts.get(x) || 0) + 1));
+    const topCount = Math.max(...counts.values());
+    const modes = topCount > 1
+        ? [...counts.entries()].filter(([, c]) => c === topCount).map(([x]) => x)
+        : [];
+
+    // population divides by n; the sample estimate divides by n-1 (Bessel)
+    const squaredError = numbers.reduce((s, x) => s + (x - mean) ** 2, 0);
+    const popVar = squaredError / n;
+    const sampleVar = n > 1 ? squaredError / (n - 1) : null;
+
+    renderRow(box, "Adet", String(n));
+    renderRow(box, "Toplam", formatNumber(sum));
+    renderRow(box, "Ortalama", formatNumber(mean));
+    renderRow(box, "Medyan", formatNumber(median));
+    renderRow(box, "Mod", modes.length ? modes.join(", ") : "yok");
+    renderRow(box, "En küçük", formatNumber(sorted[0]));
+    renderRow(box, "En büyük", formatNumber(sorted[n - 1]));
+    renderRow(box, "Açıklık", formatNumber(sorted[n - 1] - sorted[0]));
+    renderRow(box, "Varyans (yığın)", formatNumber(popVar));
+    renderRow(box, "Std sapma (yığın)", formatNumber(Math.sqrt(popVar)));
+
+    if (sampleVar !== null) {
+        renderRow(box, "Varyans (örneklem)", formatNumber(sampleVar));
+        renderRow(box, "Std sapma (örneklem)", formatNumber(Math.sqrt(sampleVar)));
+    }
+}
+
+$("stat-input").addEventListener("input", renderStats);
+
+renderNumberTheory();
+renderNumberPair();
+renderBases();
+renderStats();
+
+// =====================================================================
 // SIDE PANEL + TABS
 // =====================================================================
 
@@ -2018,7 +2486,7 @@ document.addEventListener("keydown", (event) => {
     }
 
     if (key === "!") { appendRaw("!"); return; }
-    if (key === "%") { applyUnary(v => v / 100); return; }
+    if (key === "%") { applyPercent(); return; }
     if (key === "±") { appendRaw("±"); return; }
 
     /* Let people type "sin(30)" or "5km" instead of hunting for buttons —

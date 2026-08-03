@@ -1540,3 +1540,174 @@ body.size-cokbuyuk .app-title { font-size: clamp(0.85rem, 2.8vw, 1.05rem); }
     text-overflow: clip;
     line-height: 1.25;
 }
+
+/* =====================================================================
+   ARAÇLAR PANELİ
+   ===================================================================== */
+
+/* five tabs no longer fit on a phone, so the strip scrolls instead of
+   squeezing the labels into unreadability */
+.panel-tabs {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.panel-tabs::-webkit-scrollbar { display: none; }
+
+.panel-tab {
+    flex: 1 0 auto;
+    padding: 0 10px;
+    white-space: nowrap;
+}
+
+#pane-tools {
+    overflow-y: auto;
+    gap: 10px;
+}
+
+.tool {
+    border: 1px solid rgba(159, 231, 255, 0.14);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 10px 12px;
+}
+
+.tool > summary {
+    cursor: pointer;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--operator-color);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tool > summary::-webkit-details-marker { display: none; }
+
+.tool > summary::before {
+    content: "▸";
+    transition: transform 0.2s ease;
+    display: inline-block;
+}
+
+.tool[open] > summary::before { transform: rotate(90deg); }
+
+.tool > *:not(summary) { margin-top: 10px; }
+
+.tool-result {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tool-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.tool-key {
+    font-size: 0.68rem;
+    color: var(--muted-color);
+    flex-shrink: 0;
+}
+
+.tool-val {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-color);
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+/* =====================================================================
+   "NE OLURDU?" KAYDIRICISI
+   ===================================================================== */
+
+/* the expression line is now made of chips, so it must lay out as flow text */
+#display .top {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: 0;
+    white-space: normal;
+    overflow: visible;
+}
+
+.num-chip {
+    height: auto;
+    padding: 1px 4px;
+    margin: 0 1px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    border-bottom: 1px dashed rgba(159, 231, 255, 0.35);
+    transition: background 0.15s ease, color 0.15s ease;
+    overflow: visible;
+}
+
+.num-chip:hover {
+    background: rgba(159, 231, 255, 0.14);
+    color: var(--operator-color);
+    transform: none;
+    box-shadow: none;
+}
+
+.num-chip::before { display: none; }
+
+.num-chip.active {
+    background: rgba(248, 164, 95, 0.22);
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+}
+
+.whatif {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    margin-bottom: clamp(8px, 1.6vh, 14px);
+    border-radius: 14px;
+    background: rgba(248, 164, 95, 0.09);
+    border: 1px solid rgba(248, 164, 95, 0.28);
+    animation: slideDown 0.2s ease;
+}
+
+.whatif[hidden] { display: none; }
+
+.whatif-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.whatif-label {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--accent-color);
+}
+
+.whatif-bounds {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.62rem;
+    color: var(--muted-color);
+}
+
+#whatif-range {
+    width: 100%;
+    accent-color: var(--accent-color);
+    cursor: pointer;
+}
