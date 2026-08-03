@@ -46,14 +46,17 @@ body {
 
 /* ================= BACKGROUND ================= */
 
-/* VIDEO FULL BACKGROUND */
-#bg-video {
+/* The 16 MB video is gone; the sky is drawn instead of downloaded.
+   Layer order behind the UI: -4 deep field, -3 starfield, -2 nebula,
+   -1 contributor stars. */
+#sky {
     position: fixed;
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    display: block;
     z-index: -4;
+    pointer-events: none;
 }
 
 /* procedural starfield (no external asset needed) — drifts slowly for constant motion */

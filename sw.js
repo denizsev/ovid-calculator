@@ -1,8 +1,8 @@
 /* Ovid Calculator service worker.
-   Caches the app shell only — the 16 MB background video is deliberately
-   left to the network so installing the app stays cheap. */
+   The whole app is now a few hundred KB — the background is drawn rather
+   than downloaded — so the entire shell is cached and it runs fully offline. */
 
-const CACHE = "ovid-shell-v2";
+const CACHE = "ovid-shell-v3";
 
 const SHELL = [
     "./",
@@ -41,8 +41,8 @@ self.addEventListener("fetch", event => {
 
     const url = new URL(request.url);
 
-    // never cache the video or cross-origin requests (fonts, etc.)
-    if (url.origin !== self.location.origin || url.pathname.endsWith(".mp4")) return;
+    // never cache cross-origin requests (fonts, etc.)
+    if (url.origin !== self.location.origin) return;
 
     // network-first so updates land immediately, cache as offline fallback
     event.respondWith(
