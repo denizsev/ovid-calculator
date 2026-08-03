@@ -9,6 +9,7 @@ const SHELL = [
     "./index.html",
     "./style.css",
     "./myJava.js",
+    "./sky.js",
     "./community.js",
     "./contributors.json",
     "./manifest.json",
