@@ -171,9 +171,7 @@ somut şikâyetler. Bunlar "keşke" değil, insanların yazdığı gerçek sorun
    ondalık basamak verip **"sahte hassasiyet"** yaratıyor; sonuç, ölçümün gerçek
    hassasiyetini yansıtmıyor. Bizim belirsizlik motorumuz bunun yarısını zaten
    çözdü; bir "sig-fig modu" doğal devamı.
-7. **Tam kesir (exact fraction) aritmetiği** — `1/3 + 1/6` → `1/2` (0.5 değil).
-   Kesirli form **yuvarlanmış yaklaşık değil, tam değeri** verir. Devirli ondalığı
-   kesre çevirme de aranıyor. ❌ **eksik** — en güçlü sıradaki aday.
+7. **Tam kesir (exact fraction) aritmetiği** — ✅ **YAPILDI** (bkz. bölüm 8)
 8. **Asal çarpanlara ayırma / OBEB / OKEK** — devasa arama hacmi, onlarca
    siteye tek başına trafik getiriyor. ❌ **eksik**
 9. **Taban dönüşümü (ikilik/onaltılık)** — yazılımcı kitlesi. ❌ **eksik**
@@ -247,6 +245,46 @@ kullanıcı şikâyet etmeden önce kapatıldı:
 Not: Büyük boyut modu ilk denemede üst barı taşırıp yatay kaydırma yaratıyordu;
 boyutlandırma yalnızca tuş takımına uygulanacak şekilde sınırlandırıldı
 (üst bar kontrolleri içerik değil, arayüz kromu).
+
+---
+
+## 8. Kesir modu — tam (exact) aritmetik (YAPILDI)
+
+### Çözülen sorun
+İkilik kayan nokta `0.1` veya `1/3` gibi sayıları tam saklayamaz. Hata küçük
+başlar ama işlemler zincirlendikçe yüzeye çıkar. Sitedeki somut örnek:
+
+```
+(0.1 + 0.2) × 3 − 0.9   →   1.11022302463×10^-16     (olması gereken: 0)
+```
+
+### Nasıl çalışıyor
+Her `Quantity` artık float'ın **yanı sıra** tam bir pay/payda çifti (BigInt)
+taşıyor. Sayı hâlâ kanıtlanabilir şekilde rasyonelse bu form korunur:
+
+- Literal sayılar **yazılan rakamlardan** kurulur — `parseFloat` zaten
+  yuvarladığı için tokenizer ham metni saklar. `0.1` = tam olarak 1/10.
+- `+ − × ÷` ve tam sayı üsleri tam kalır; faktöriyel tam sayı olarak.
+- Birim çarpanları da rasyonel taşınır (`5 km` = tam 5000 m).
+
+Rasyonellerden çıkan her işlem tam formu **düşürür** ve float tek başına kalır:
+`sin`, `ln`, `sqrt` (tam kare değilse), `π`, `e` ve **ölçüm hatası olan (±)
+değerler** — çünkü belirsizlik ile kesinlik çelişir.
+
+### Önemli tasarım kararı
+Tam form varsa **ondalık gösterim de ondan üretilir**. Yani kesir modu kapalıyken
+bile `(0.1+0.2)*3-0.9` artık `0` veriyor. Kesir modu sadece *gösterimi*
+değiştirir; doğruluk her zaman açık.
+
+### Sınırlar (bilinçli)
+- Pay/payda 10^40'ı aşarsa tam form düşürülür — o boyutta okunabilir değil.
+- Kesir olarak **gösterim** yalnızca pay ve payda 10^7'nin altındaysa yapılır;
+  `1/7` gösterilir, devasa kesirler ondalığa döner.
+- `0.333...` gibi devirli ondalık **girişi** yok; ihtiyaç kalmadı, çünkü
+  `1/3` zaten tam tutuluyor.
+- Sonuç zincirlenirken `(1/3)` biçiminde geri yazılır, böylece bir sonraki
+  işlem de tam kalır. Birimli kesirler (`1/3 km`) ondalığa döner — birim
+  eki parantezden sonra ayrıştırılamıyor.
 
 ---
 

@@ -48,6 +48,7 @@ let lastResult = null;
 let angleMode = storeGet("ovid-angle") || "DEG";
 let soundOn = storeGet("ovid-sound") !== "off";
 let stepMode = storeGet("ovid-step") === "on";
+let fractionMode = storeGet("ovid-fraction") === "on";
 let secondMode = false;
 let memory = Number(storeGet("ovid-memory")) || 0;
 let history = JSON.parse(storeGet("ovid-history") || "[]");
@@ -71,6 +72,83 @@ const toastEl = $("toast");
 // QUANTITY — a value that carries its uncertainty and its dimensions.
 // This is what makes "5.2±0.1 * 3" and "5 km + 300 m" possible.
 // =====================================================================
+
+// =====================================================================
+// EXACT RATIONALS
+// Binary floating point cannot hold 1/3 or even 0.1, so errors creep in
+// and surface later: (0.1+0.2)*3-0.9 lands on 1.1e-16 instead of 0.
+// Alongside every float we therefore carry an exact numerator/denominator
+// pair (BigInt) whenever the value is still provably rational. When an
+// operation leaves the rationals (sin, ln, π, a measured ±), the exact
+// form is dropped and the float stands alone — honestly inexact.
+// =====================================================================
+
+const RAT_LIMIT = 10n ** 40n; // beyond this an "exact" fraction is unreadable anyway
+
+function ratGcd(a, b) {
+    a = a < 0n ? -a : a;
+    b = b < 0n ? -b : b;
+    while (b) { [a, b] = [b, a % b]; }
+    return a;
+}
+
+function rat(n, d = 1n) {
+    if (d === 0n) return null;
+
+    if (d < 0n) { n = -n; d = -d; }
+
+    const g = ratGcd(n, d) || 1n;
+    n /= g;
+    d /= g;
+
+    const magnitude = (n < 0n ? -n : n) > d ? (n < 0n ? -n : n) : d;
+    if (magnitude > RAT_LIMIT) return null;
+
+    return { n, d };
+}
+
+/* Parses the digits the user actually typed, not the float they became:
+   "0.1" must become 1/10, never the binary approximation of 0.1. */
+function ratFromDecimal(text) {
+    const match = String(text).trim().match(/^(-?)(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$/);
+    if (!match) return null;
+
+    const [, sign, intPart = "", fracPart = "", expPart] = match;
+    if (!intPart && !fracPart) return null;
+
+    let n = BigInt((intPart || "0") + (fracPart || ""));
+    let d = 10n ** BigInt((fracPart || "").length);
+
+    const exp = Number(expPart || 0);
+    if (exp > 0) n *= 10n ** BigInt(exp);
+    if (exp < 0) d *= 10n ** BigInt(-exp);
+
+    if (sign === "-") n = -n;
+
+    return rat(n, d);
+}
+
+const ratFromNumber = value => Number.isFinite(value) ? ratFromDecimal(value.toString()) : null;
+
+const ratAdd = (a, b) => (a && b) ? rat(a.n * b.d + b.n * a.d, a.d * b.d) : null;
+const ratSub = (a, b) => (a && b) ? rat(a.n * b.d - b.n * a.d, a.d * b.d) : null;
+const ratMul = (a, b) => (a && b) ? rat(a.n * b.n, a.d * b.d) : null;
+const ratDiv = (a, b) => (a && b && b.n !== 0n) ? rat(a.n * b.d, a.d * b.n) : null;
+const ratNeg = a => a ? { n: -a.n, d: a.d } : null;
+
+function ratPow(a, exp) {
+    if (!a || !Number.isInteger(exp) || Math.abs(exp) > 64) return null;
+    if (exp === 0) return rat(1n, 1n);
+
+    const e = BigInt(Math.abs(exp));
+    const powered = rat(a.n ** e, a.d ** e);
+    if (!powered) return null;
+
+    return exp > 0 ? powered : ratDiv(rat(1n, 1n), powered);
+}
+
+const ratToNumber = a => a ? Number(a.n) / Number(a.d) : null;
+const ratIsWhole = a => a && a.d === 1n;
 
 /* Dimension vector: [length, mass, time, data]. Everything is stored in
    base units (m, kg, s, byte); `unit` only decides how it is displayed. */
@@ -102,15 +180,17 @@ function dimLabel(dim) {
 }
 
 class Quantity {
-    constructor(value, uncertainty = 0, dim = DIMLESS, unit = null) {
+    constructor(value, uncertainty = 0, dim = DIMLESS, unit = null, exact = null) {
         this.v = value;
         this.u = Math.abs(uncertainty);
         this.dim = dim;
-        this.unit = unit; // { label, factor } — display preference only
+        this.unit = unit;   // { label, factor, rFactor } — display preference only
+        // an exact rational is meaningless once a measurement error is attached
+        this.r = this.u > 0 ? null : exact;
     }
 }
 
-const scalar = n => new Quantity(n);
+const scalar = n => new Quantity(n, 0, DIMLESS, null, ratFromNumber(n));
 
 function requireDimless(q, what) {
     if (!isDimless(q.dim)) {
@@ -126,7 +206,8 @@ function qAdd(a, b, sign = 1) {
         a.v + sign * b.v,
         Math.hypot(a.u, b.u),
         a.dim,
-        a.unit || b.unit
+        a.unit || b.unit,
+        sign > 0 ? ratAdd(a.r, b.r) : ratSub(a.r, b.r)
     );
 }
 
@@ -150,26 +231,35 @@ function combineUnit(a, b, op) {
     if (!a.unit && b.unit) {
         return op === "*"
             ? b.unit
-            : { label: "1/" + b.unit.label, factor: 1 / b.unit.factor };
+            : {
+                label: "1/" + b.unit.label,
+                factor: 1 / b.unit.factor,
+                rFactor: ratDiv(rat(1n, 1n), b.unit.rFactor)
+            };
     }
 
     const left = parsePower(a.unit.label);
     const right = parsePower(b.unit.label);
+
     const factor = op === "*"
         ? a.unit.factor * b.unit.factor
         : a.unit.factor / b.unit.factor;
 
+    const rFactor = op === "*"
+        ? ratMul(a.unit.rFactor, b.unit.rFactor)
+        : ratDiv(a.unit.rFactor, b.unit.rFactor);
+
     if (left.base === right.base) {
         const exp = op === "*" ? left.exp + right.exp : left.exp - right.exp;
         const label = powerLabel(left.base, exp);
-        return label ? { label, factor } : null;
+        return label ? { label, factor, rFactor } : null;
     }
 
     const label = op === "*"
         ? a.unit.label + "·" + b.unit.label
         : a.unit.label + "/" + b.unit.label;
 
-    return { label, factor };
+    return { label, factor, rFactor };
 }
 
 function qMul(a, b) {
@@ -178,7 +268,8 @@ function qMul(a, b) {
         a.v * b.v,
         Math.hypot(b.v * a.u, a.v * b.u),
         addDim(a.dim, b.dim),
-        combineUnit(a, b, "*")
+        combineUnit(a, b, "*"),
+        ratMul(a.r, b.r)
     );
 }
 
@@ -187,7 +278,8 @@ function qDiv(a, b) {
         a.v / b.v,
         Math.hypot(a.u / b.v, (a.v * b.u) / (b.v * b.v)),
         subDim(a.dim, b.dim),
-        combineUnit(a, b, "/")
+        combineUnit(a, b, "/"),
+        ratDiv(a.r, b.r)
     );
 }
 
@@ -203,10 +295,16 @@ function qPow(a, b) {
     const dExp = a.v > 0 ? value * Math.log(a.v) * b.u : 0;
 
     const unit = a.unit && Number.isInteger(b.v)
-        ? { label: b.v === 1 ? a.unit.label : a.unit.label + "^" + b.v, factor: Math.pow(a.unit.factor, b.v) }
+        ? {
+            label: b.v === 1 ? a.unit.label : a.unit.label + "^" + b.v,
+            factor: Math.pow(a.unit.factor, b.v),
+            rFactor: ratPow(a.unit.rFactor, b.v)
+        }
         : null;
 
-    return new Quantity(value, Math.hypot(dBase, dExp), scaleDim(a.dim, b.v), unit);
+    const exact = (b.r && ratIsWhole(b.r)) ? ratPow(a.r, b.v) : null;
+
+    return new Quantity(value, Math.hypot(dBase, dExp), scaleDim(a.dim, b.v), unit, exact);
 }
 
 function qMod(a, b) {
@@ -215,7 +313,7 @@ function qMod(a, b) {
 }
 
 function qNeg(a) {
-    return new Quantity(-a.v, a.u, a.dim, a.unit);
+    return new Quantity(-a.v, a.u, a.dim, a.unit, ratNeg(a.r));
 }
 
 function factorial(n) {
@@ -228,7 +326,18 @@ function factorial(n) {
 
 function qFactorial(a) {
     requireDimless(a, "Faktöriyel girdisi");
-    return scalar(factorial(a.v));
+
+    const value = factorial(a.v);
+
+    // factorials are integers, so keep them exact well past float precision
+    let exact = null;
+    if (Number.isInteger(a.v) && a.v >= 0 && a.v <= 40) {
+        let acc = 1n;
+        for (let i = 2n; i <= BigInt(a.v); i++) acc *= i;
+        exact = rat(acc, 1n);
+    }
+
+    return new Quantity(value, 0, DIMLESS, null, exact);
 }
 
 // =====================================================================
@@ -345,11 +454,12 @@ function tokenize(input) {
 
     const skipSpace = () => { while (i < input.length && input[i] === " ") i++; };
 
+    // returns the raw text: the exact digits matter, parseFloat already rounds
     const readNumber = () => {
         let num = "";
         while (i < input.length && /[0-9.]/.test(input[i])) num += input[i++];
         if ((num.match(/\./g) || []).length > 1) throw new Error("Geçersiz sayı");
-        return parseFloat(num);
+        return num;
     };
 
     const readIdent = () => {
@@ -365,8 +475,8 @@ function tokenize(input) {
 
         // number, optionally "±uncertainty" and/or a unit suffix
         if (/[0-9.]/.test(ch)) {
-            const value = readNumber();
-            let uncert = 0;
+            const raw = readNumber();
+            let uncertRaw = "0";
             let unit = null;
 
             let save = i;
@@ -375,7 +485,7 @@ function tokenize(input) {
                 i++;
                 skipSpace();
                 if (!/[0-9.]/.test(input[i] || "")) throw new Error("± sonrası sayı bekleniyor");
-                uncert = readNumber();
+                uncertRaw = readNumber();
             } else {
                 i = save;
             }
@@ -389,7 +499,13 @@ function tokenize(input) {
                 i = save;
             }
 
-            tokens.push({ type: "number", value, uncert, unit });
+            tokens.push({
+                type: "number",
+                raw,
+                value: parseFloat(raw),
+                uncert: parseFloat(uncertRaw),
+                unit
+            });
             continue;
         }
 
@@ -402,7 +518,8 @@ function tokenize(input) {
             } else if (name === "mod") {
                 tokens.push({ type: "operator", value: "mod" });
             } else if (CONSTANTS[name] !== undefined) {
-                tokens.push({ type: "number", value: CONSTANTS[name], uncert: 0, unit: null });
+                // π and e are irrational: no exact rational form exists
+                tokens.push({ type: "number", value: CONSTANTS[name], uncert: 0, unit: null, raw: null });
             } else {
                 throw new Error("Bilinmeyen ifade: " + name);
             }
@@ -563,14 +680,22 @@ function toRPN(tokens) {
 // =====================================================================
 
 function quantityFromToken(token) {
-    if (!token.unit) return new Quantity(token.value, token.uncert || 0);
+    // built from the typed digits, so "0.1" is exactly 1/10 and not the float
+    const exact = token.raw ? ratFromDecimal(token.raw) : null;
+
+    if (!token.unit) {
+        return new Quantity(token.value, token.uncert || 0, DIMLESS, null, exact);
+    }
 
     const unit = UNITS[token.unit];
+    const rFactor = ratFromNumber(unit.f);
+
     return new Quantity(
         token.value * unit.f,
         (token.uncert || 0) * unit.f,
         unit.d,
-        { label: token.unit, factor: unit.f }
+        { label: token.unit, factor: unit.f, rFactor },
+        ratMul(exact, rFactor)
     );
 }
 
@@ -737,17 +862,37 @@ function formatUncertain(value, uncertainty) {
         " ± " + formatNumber(Number(uncertainty.toFixed(decimals)));
 }
 
+// fractions longer than this are noise, not insight
+const FRACTION_READABLE = 10n ** 7n;
+
 function formatQuantity(q) {
     let value = q.v;
     let uncertainty = q.u;
     let label = "";
 
+    // the exact form, expressed in the unit the user is looking at
+    let exact = q.r;
+
     if (q.unit) {
         value /= q.unit.factor;
         uncertainty /= q.unit.factor;
         label = " " + q.unit.label;
+        exact = q.unit.rFactor ? ratDiv(exact, q.unit.rFactor) : null;
     } else if (!isDimless(q.dim)) {
         label = " " + dimLabel(q.dim);
+    }
+
+    if (exact) {
+        // exact beats float even in decimal mode: this is what turns
+        // (0.1+0.2)*3-0.9 from 1.11e-16 into a clean 0
+        value = ratToNumber(exact);
+
+        const readable = exact.d > 1n && exact.d < FRACTION_READABLE &&
+            (exact.n < 0n ? -exact.n : exact.n) < FRACTION_READABLE;
+
+        if (fractionMode && readable) {
+            return exact.n + "/" + exact.d + label;
+        }
     }
 
     return formatUncertain(value, uncertainty) + label;
@@ -1137,11 +1282,19 @@ function toExpressionString(q) {
     let value = q.v;
     let uncertainty = q.u;
     let suffix = "";
+    let exact = q.r;
 
     if (q.unit && UNITS[q.unit.label]) {
         value /= q.unit.factor;
         uncertainty /= q.unit.factor;
         suffix = q.unit.label;
+        exact = q.unit.rFactor ? ratDiv(exact, q.unit.rFactor) : null;
+    }
+
+    if (exact) {
+        // "(1/3)" re-parses to exactly 1/3, so chaining stays lossless
+        if (ratIsWhole(exact)) return exact.n + suffix;
+        if (!suffix) return "(" + exact.n + "/" + exact.d + ")";
     }
 
     let text = String(Number(value.toPrecision(12)));
@@ -1170,9 +1323,11 @@ function commitResult(previous, result) {
 
     lastResult = result.v;
     pushUndo();
-    expression = toExpressionString(result);
 
-    pushHistory(previous, formatted);
+    const reusable = toExpressionString(result);
+    expression = reusable;
+
+    pushHistory(previous, formatted, reusable);
 }
 
 // warp mode: walk the expression through each evaluation step before landing
@@ -1387,6 +1542,24 @@ $("step-toggle").addEventListener("click", () => {
 
 setStepMode(stepMode);
 
+function setFractionMode(on) {
+    fractionMode = on;
+    storeSet("ovid-fraction", on ? "on" : "off");
+
+    const btn = $("fraction-toggle");
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-pressed", String(on));
+
+    updateDisplay();
+}
+
+$("fraction-toggle").addEventListener("click", () => {
+    setFractionMode(!fractionMode);
+    showToast(fractionMode ? "Kesir modu açık — tam değer" : "Kesir modu kapalı — ondalık");
+});
+
+setFractionMode(fractionMode);
+
 $("sci-toggle").addEventListener("click", () => {
     const pad = $("sci-advanced");
     const open = pad.hasAttribute("hidden");
@@ -1467,8 +1640,9 @@ function persistHistory() {
     storeSet("ovid-history", JSON.stringify(history));
 }
 
-function pushHistory(expr, result) {
-    history.unshift({ expr, result, at: Date.now() });
+function pushHistory(expr, result, reusable) {
+    // `reusable` is the parseable form; `result` is the pretty one
+    history.unshift({ expr, result, reusable, at: Date.now() });
     history = history.slice(0, 50);
     persistHistory();
     renderHistory();
@@ -1501,7 +1675,7 @@ function renderHistory() {
 
         li.addEventListener("click", () => {
             pushUndo();
-            expression = item.result.replace(/\s/g, "");
+            expression = item.reusable || item.result.replace(/\s/g, "");
             updateDisplay();
             closePanel();
             showToast("Sonuç yüklendi");
