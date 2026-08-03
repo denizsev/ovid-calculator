@@ -288,6 +288,50 @@ değiştirir; doğruluk her zaman açık.
 
 ---
 
+## 9. Matematiksel denetim (YAPILDI)
+
+Motor bir matematik mühendisi gözüyle baştan denetlendi. Bulunan ve
+düzeltilen gerçek hatalar:
+
+| Sorun | Önce | Sonra |
+|---|---|---|
+| `mod` JS'in `%` kalanını kullanıyordu | `-7 mod 3 = -1` | `-7 mod 3 = 2` (bölenin işareti) |
+| Yüzde bağlamı yok sayıyordu | `50 + 10% = 50.1` | `50 + 10% = 55` |
+| `tan` tekilliği yakalanmıyordu | `tan(90) = 1.63×10^16` | "tanımsız" uyarısı |
+| Tanım kümesi dışı sessizce NaN | "Tanımsız sonuç" | `asin(2)` → "−1 ile 1 arasında olmalı" |
+| `sqrt` tam kareyi kaybediyordu | `sqrt(4/9) = 0.666…` | `sqrt(4/9) = 2/3` |
+| Kayan nokta birikimi | `(0.1+0.2)*3-0.9 = 1.11×10^-16` | `= 0` |
+
+Ayrıca `mod` artık sıfıra bölmeyi reddediyor ve sarma noktasında süreksiz
+olduğu için hata payını taşımıyor.
+
+### Bilinen sınır (dürüstçe)
+Gauss yayılımı değişkenleri **bağımsız** varsayar. `x × x` gibi bağıntılı
+ifadelerde hata payı gerçekte olması gerekenden büyük çıkar (√2·x·σ yerine
+2x·σ olmalı). Bu, naif hata yayılımının bilinen sınırıdır; düzeltmek için
+ifade içindeki değişken kimliğinin izlenmesi gerekir.
+
+---
+
+## 10. Anlamlı basamak (sig-fig) modu — SIRADA, kuralları hazır
+
+Bilerek yapılmadı: dördüncü bir gösterim modu (ondalık / kesir / ±) ile
+çakışma riski, kullanıcıyla birlikte iterasyon yapmadan yüksek. Kurallar
+araştırıldı ve burada bekliyor:
+
+- **Toplama / çıkarma** → sonuç, **en az ondalık basamağa** sahip terime uyar.
+- **Çarpma / bölme** → sonuç, **en az anlamlı basamağa** sahip terime uyar.
+- **Ara sonuçlar yuvarlanmaz**; kural yalnızca nihai sonuca uygulanır.
+
+Uygulama notu: `Quantity` üzerine `{figs, decimals}` alanı eklenip
+belirsizlik gibi taşınmalı. İki kısıt arasında dönüşüm:
+`figs = floor(log10|v|) + 1 + decimals`.
+
+Anlamlı basamak sayma kuralı: baştaki sıfırlar sayılmaz; ondalık nokta
+yoksa sondaki sıfırlar da sayılmaz (`1200` → 2, `1200.` → 4, `0.00120` → 3).
+
+---
+
 ## 7. Kaynaklar
 
 - Similarweb — Matematik kategorisi sıralaması ve calculator.net trafiği
