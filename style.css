@@ -1711,3 +1711,110 @@ body.size-cokbuyuk .app-title { font-size: clamp(0.85rem, 2.8vw, 1.05rem); }
     accent-color: var(--accent-color);
     cursor: pointer;
 }
+
+/* =====================================================================
+   YARDIM PANELİ
+   ===================================================================== */
+
+#help-open {
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: inherit;
+}
+
+/* a single, quiet nudge for first-time visitors */
+#help-open.nudge {
+    animation: helpNudge 2s ease-in-out 3;
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+@keyframes helpNudge {
+    0%, 100% { box-shadow: 0 0 0 rgba(248, 164, 95, 0); }
+    50% { box-shadow: 0 0 0 8px rgba(248, 164, 95, 0.16); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #help-open.nudge { animation: none; }
+}
+
+.help-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.help-item {
+    padding: 11px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.help-item h3 {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.help-key {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(159, 231, 255, 0.14);
+    border: 1px solid rgba(159, 231, 255, 0.28);
+    color: var(--operator-color);
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.help-item p {
+    font-size: 0.74rem;
+    line-height: 1.5;
+    color: var(--muted-color);
+}
+
+.help-item code {
+    font-family: inherit;
+    font-size: 0.72rem;
+    padding: 6px 9px;
+    border-radius: 8px;
+    background: rgba(8, 16, 28, 0.7);
+    color: var(--operator-color);
+    overflow-wrap: anywhere;
+}
+
+.shortcut-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 5px;
+}
+
+.shortcut-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.71rem;
+    color: var(--muted-color);
+}
+
+kbd {
+    font-family: inherit;
+    font-size: 0.66rem;
+    padding: 3px 7px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-bottom-width: 2px;
+    color: var(--text-color);
+    white-space: nowrap;
+    flex-shrink: 0;
+}

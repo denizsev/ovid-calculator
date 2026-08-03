@@ -548,6 +548,67 @@ function renderAll() {
     renderHall();
 }
 
+// ---------------------------------------------------------------------
+// HELP — the feature set is invisible otherwise, so it gets its own guide
+// ---------------------------------------------------------------------
+
+const helpModal = cq("help-modal");
+let helpLastFocused = null;
+
+function openHelp() {
+    helpLastFocused = document.activeElement;
+    helpModal.classList.add("open");
+    helpModal.setAttribute("aria-hidden", "false");
+    cq("help-open").setAttribute("aria-expanded", "true");
+    document.addEventListener("keydown", helpKeys);
+    setTimeout(() => cq("help-close").focus(), 60);
+}
+
+function closeHelp() {
+    helpModal.classList.remove("open");
+    helpModal.setAttribute("aria-hidden", "true");
+    cq("help-open").setAttribute("aria-expanded", "false");
+    document.removeEventListener("keydown", helpKeys);
+    if (helpLastFocused && document.contains(helpLastFocused)) helpLastFocused.focus();
+}
+
+function helpKeys(event) {
+    if (event.key === "Escape") {
+        closeHelp();
+        return;
+    }
+
+    if (event.key !== "Tab") return;
+
+    const items = [...helpModal.querySelectorAll(FOCUSABLE)]
+        .filter(node => node.offsetParent !== null);
+    if (!items.length) return;
+
+    const first = items[0];
+    const last = items[items.length - 1];
+
+    if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+    }
+}
+
+cq("help-open").addEventListener("click", openHelp);
+cq("help-close").addEventListener("click", closeHelp);
+helpModal.addEventListener("click", (event) => {
+    if (event.target === helpModal) closeHelp();
+});
+
+/* First-time visitors get pointed at the guide once, and only once. */
+if (!storeGet("ovid-seen-help")) {
+    storeSet("ovid-seen-help", "1");
+    setTimeout(() => cq("help-open").classList.add("nudge"), 1200);
+    cq("help-open").addEventListener("click", () => cq("help-open").classList.remove("nudge"), { once: true });
+}
+
 /* The sky should already carry the contributors on first paint, not only
    once someone opens the Hall of Fame. */
 (async function bootStarMap() {
