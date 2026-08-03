@@ -5,10 +5,10 @@
 }
 
 :root {
-    --display-bg: rgba(8, 16, 28, 0.24);
+    --display-bg: rgba(4, 9, 18, 0.55);
     --panel-bg: rgba(8, 16, 28, 0.55);
-    --button-bg: rgba(255, 255, 255, 0.02);
-    --button-hover: rgba(255, 255, 255, 0.09);
+    --button-bg: rgba(255, 255, 255, 0.045);
+    --button-hover: rgba(255, 255, 255, 0.11);
     --sci-bg: rgba(159, 231, 255, 0.06);
     --sci-hover: rgba(159, 231, 255, 0.14);
     --operator-color: #9fe7ff;
@@ -16,6 +16,7 @@
     --text-color: #f5fbff;
     --muted-color: rgba(245, 251, 255, 0.55);
     --border-glow: rgba(159, 231, 255, 0.22);
+    --ground: #05070d;
 
     /* fluid sizing tokens: scale with viewport instead of hard breakpoint cliffs */
     --gap-sm: clamp(5px, 1.2vh, 9px);
@@ -44,79 +45,390 @@ body {
     color: var(--text-color);
 }
 
-/* ================= BACKGROUND ================= */
+/* ================= BACKGROUND =================
+   The sky is drawn, not downloaded. Layer order behind the UI:
+     -4  .sky      pure-CSS deep field (nebulae, dust, cluster, hero stars)
+     -3  #skyflow  canvas parallax — the only part CSS cannot fake
+     -1  .star-map contributor stars
+   ============================================== */
 
-/* The 16 MB video is gone; the sky is drawn instead of downloaded.
-   Layer order behind the UI: -4 deep field, -3 starfield, -2 nebula,
-   -1 contributor stars. */
-#sky {
+#skyflow {
     position: fixed;
+    inset: 0;
+    z-index: -3;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+#skyflow canvas {
+    position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     display: block;
-    z-index: -4;
-    pointer-events: none;
 }
 
-/* procedural starfield (no external asset needed) — drifts slowly for constant motion */
-body::before {
+/* a pool of calm at the centre so the readout always wins over the motion */
+#skyflow::after {
     content: "";
-    position: fixed;
-    inset: -280px 0 0 -280px;
-    width: calc(100% + 280px);
-    height: calc(100% + 280px);
-    background-image:
-        radial-gradient(1.5px 1.5px at 12% 22%, rgba(255, 255, 255, 0.9), transparent),
-        radial-gradient(1px 1px at 28% 68%, rgba(255, 255, 255, 0.7), transparent),
-        radial-gradient(1.5px 1.5px at 46% 14%, rgba(255, 255, 255, 0.8), transparent),
-        radial-gradient(1px 1px at 62% 82%, rgba(255, 255, 255, 0.6), transparent),
-        radial-gradient(1.5px 1.5px at 78% 34%, rgba(255, 255, 255, 0.9), transparent),
-        radial-gradient(1px 1px at 88% 66%, rgba(255, 255, 255, 0.55), transparent),
-        radial-gradient(1px 1px at 6% 88%, rgba(255, 255, 255, 0.65), transparent),
-        radial-gradient(1.5px 1.5px at 95% 12%, rgba(255, 255, 255, 0.7), transparent);
-    background-repeat: repeat;
-    background-size: 280px 280px;
-    opacity: 0.3;
-    z-index: -3;
-    animation: twinkle 6s ease-in-out infinite alternate, drift 60s linear infinite;
-    pointer-events: none;
+    position: absolute;
+    inset: -1px;
+    background:
+        radial-gradient(ellipse 30% 40% at 50% 50%, rgba(5, 7, 13, 0.82), rgba(5, 7, 13, 0.40) 55%, rgba(5, 7, 13, 0) 80%),
+        radial-gradient(ellipse 130% 105% at 50% 50%, rgba(5, 7, 13, 0) 64%, rgba(5, 7, 13, 0.22) 100%);
 }
 
-body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background: radial-gradient(
-        circle at 50% 45%,
-        rgba(159, 231, 255, 0.1),
-        transparent 60%
-    );
-    z-index: -2;
-    animation: nebulaPulse 9s ease-in-out infinite alternate;
-    pointer-events: none;
+/* ===========================================================================
+   THE SKY — fixed, full-viewport, inert, behind all content.
+
+   back .. front
+     1  .base       deep wash, four colour zones         static
+     2  .bleed      conic hue bleed                      160s rotate
+     3  .band       galactic band + mottling             190s breathe
+     4  .neb-a      cyan / teal cloud        screen      128s breathe
+     5  .neb-b      indigo / violet cloud    screen      164s breathe
+     6  .wisp-a     cyan filaments           screen      210s
+     7  .wisp-b     violet filaments         screen      178s
+     8  .neb-c      amber ember (sparing)    screen       96s breathe
+     9  .dust       dark lanes               multiply    230s counter-drift
+    --  moving stars are drawn by the canvas layer above, not here
+    14  .heroes     bright suns + spikes                 twinkle
+    15  .graticule  instrument hairlines                 static
+    16  .grain      sensor noise (anti-banding)          static
+    17  .vignette   falloff                              static
+   =========================================================================== */
+
+.sky {
+  position: fixed;
+  inset: 0;
+  z-index: -4;
+  pointer-events: none;
+  overflow: hidden;
+  background: var(--ground);
+  isolation: isolate;   /* keep blend modes inside the sky */
+  contain: strict;      /* nothing here can affect page layout or paint */
+}
+.sky > * {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+.sky .anim {
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
 }
 
+/* --- 1. base wash --------------------------------------------------------
+   Wide, shallow gradients sized in vmax so a 1440px desktop and a 375px phone
+   see the same composition rather than the phone seeing one flat corner.
+   Nothing here is a hard edge: a long exposure has none.                    */
+.base {
+  background:
+    radial-gradient(92vmax 70vmax at 15% 6%,    rgba(30, 96, 130, .30) 0%, rgba(18, 52, 86, .11) 36%, rgba(5, 7, 13, 0) 66%),
+    radial-gradient(76vmax 82vmax at 93% 20%,   rgba(50, 54, 130, .24) 0%, rgba(26, 30, 78, .09) 40%, rgba(5, 7, 13, 0) 68%),
+    radial-gradient(84vmax 62vmax at 82% 100%,  rgba(92, 52, 108, .16) 0%, rgba(40, 24, 58, .06) 42%, rgba(5, 7, 13, 0) 70%),
+    radial-gradient(52vmax 52vmax at 0% 88%,    rgba(14, 70, 84, .15) 0%, rgba(5, 7, 13, 0) 60%),
+    /* the cavity: keeps most of the frame genuinely black so the clouds have
+       something to be bright against */
+    radial-gradient(64vmax 48vmax at 46% 74%,   rgba(3, 4, 9, .70) 0%, rgba(3, 4, 9, .25) 52%, rgba(5, 7, 13, 0) 82%),
+    radial-gradient(150vmax 130vmax at 50% 46%, rgba(5, 7, 13, .10) 0%, rgba(4, 5, 11, .82) 70%, rgba(2, 3, 7, .96) 100%),
+    var(--ground);
+}
+
+/* --- 2. colour bleed -----------------------------------------------------
+   A conic sweep at very low opacity: the field is never one flat hue, it
+   drifts warm-cool around the frame the way a stacked exposure does.        */
+.bleed {
+  inset: -50%;
+  opacity: .3;
+  mix-blend-mode: screen;
+  background: conic-gradient(from 200deg at 50% 50%,
+    rgba(24, 84, 116, .16) 0deg,
+    rgba(52, 56, 132, .13) 78deg,
+    rgba(96, 56, 112, .10) 155deg,
+    rgba(140, 92, 60, .07) 218deg,
+    rgba(30, 92, 112, .13) 296deg,
+    rgba(24, 84, 116, .16) 360deg);
+  animation-name: bleed-turn;
+  animation-duration: 300s;
+  animation-timing-function: linear;
+}
+@keyframes bleed-turn {
+  from { transform: rotate(0deg)   scale(1); }
+  to   { transform: rotate(360deg) scale(1); }
+}
+
+/* --- 3. galactic band ----------------------------------------------------
+   An elongated wash of unresolved starlight, mottled so it isn't a stripe.
+   Oversized before rotation so the corners are never exposed.               */
+.band {
+  inset: -45%;
+  mix-blend-mode: screen;
+  background:
+    /* mottling — brighter knots along the band */
+    radial-gradient(26vmax 7vmax at 22% 50%, rgba(190, 216, 240, .10) 0%, transparent 72%),
+    radial-gradient(20vmax 5vmax at 58% 48%, rgba(214, 234, 252, .12) 0%, transparent 70%),
+    radial-gradient(30vmax 6vmax at 82% 52%, rgba(168, 200, 232, .08) 0%, transparent 74%),
+    /* the band itself */
+    linear-gradient(0deg,
+      rgba(5, 7, 13, 0)         41%,
+      rgba(104, 142, 180, .055) 46.5%,
+      rgba(176, 208, 236, .115) 50%,
+      rgba(104, 142, 180, .055) 53.5%,
+      rgba(5, 7, 13, 0)         59%);
+  animation-name: band-breathe;
+  animation-duration: 190s;
+}
+@keyframes band-breathe {
+  0%, 100% { transform: rotate(-24deg) translate3d(0, 0, 0) scale(1);     opacity: .70; }
+  50%      { transform: rotate(-24deg) translate3d(-1.4%, .9%, 0) scale(1.05); opacity: 1; }
+}
+
+/* --- 4/5/8. nebula clouds ------------------------------------------------
+   No filter:blur() anywhere. The softness is baked into the gradient stops,
+   so animating transform never forces the layer to be re-blurred per frame.  */
+.neb { inset: -25%; mix-blend-mode: screen; }
+
+.neb-a {
+  background:
+    radial-gradient(48vmax 36vmax at 24% 27%, rgba(28, 148, 192, .40) 0%, rgba(20, 96, 140, .18) 34%, rgba(12, 52, 88, .05) 58%, transparent 76%),
+    radial-gradient(28vmax 40vmax at 36% 43%, rgba(58, 186, 218, .20) 0%, rgba(26, 108, 150, .07) 42%, transparent 72%),
+    radial-gradient(12vmax 10vmax at 19% 21%, rgba(159, 231, 255, .26) 0%, transparent 68%),
+    radial-gradient(6vmax 5vmax at 21% 23%,   rgba(214, 246, 255, .22) 0%, transparent 66%),
+    radial-gradient(9vmax 7vmax  at 30% 33%,  rgba(120, 214, 246, .16) 0%, transparent 70%),
+    radial-gradient(56vmax 26vmax at 58% 14%, rgba(32, 84, 140, .15) 0%, transparent 72%);
+  animation-name: breathe-a;
+  animation-duration: 128s;
+}
+@keyframes breathe-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1);          opacity: .70; }
+  50%      { transform: translate3d(2%, -1.5%, 0) scale(1.09);  opacity: 1; }
+}
+
+.neb-b {
+  background:
+    radial-gradient(44vmax 42vmax at 80% 64%, rgba(80, 80, 178, .30) 0%, rgba(48, 48, 118, .13) 38%, transparent 70%),
+    radial-gradient(26vmax 30vmax at 90% 50%, rgba(132, 96, 196, .18) 0%, transparent 66%),
+    radial-gradient(11vmax 10vmax at 84% 60%, rgba(168, 138, 224, .16) 0%, transparent 68%),
+    radial-gradient(24vmax 20vmax at 66% 82%, rgba(46, 104, 176, .16) 0%, transparent 72%),
+    radial-gradient(38vmax 22vmax at 38% 94%, rgba(40, 60, 130, .13) 0%, transparent 74%);
+  animation-name: breathe-b;
+  animation-duration: 164s;
+}
+@keyframes breathe-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.06);       opacity: .95; }
+  50%      { transform: translate3d(-2.2%, 1.2%, 0) scale(1);   opacity: .64; }
+}
+
+/* --- 6/7. filaments ------------------------------------------------------
+   Rotated elements holding very elongated ellipses. This directional streaking
+   is what separates "nebula" from "purple blob" — CSS radial-gradients can't
+   be rotated individually, so the whole layer is rotated instead.            */
+.wisp { inset: -45%; mix-blend-mode: screen; }
+
+.wisp-a {
+  background:
+    radial-gradient(34vmax 2.6vmax at 34% 44%, rgba(72, 202, 240, .15) 0%, transparent 74%),
+    radial-gradient(25vmax 1.8vmax at 26% 50%, rgba(159, 231, 255, .12) 0%, transparent 72%),
+    radial-gradient(42vmax 3.4vmax at 47% 56%, rgba(40, 148, 200, .11) 0%, transparent 76%),
+    radial-gradient(18vmax 1.4vmax at 30% 39%, rgba(200, 244, 255, .10) 0%, transparent 70%);
+  animation-name: wisp-a-move;
+  animation-duration: 210s;
+}
+@keyframes wisp-a-move {
+  0%, 100% { transform: rotate(-34deg) translate3d(0, 0, 0) scale(1);    opacity: .62; }
+  50%      { transform: rotate(-34deg) translate3d(1.6%, -1%, 0) scale(1.07); opacity: 1; }
+}
+
+.wisp-b {
+  background:
+    radial-gradient(38vmax 2.8vmax at 62% 52%, rgba(124, 96, 214, .13) 0%, transparent 74%),
+    radial-gradient(27vmax 2vmax   at 70% 46%, rgba(78, 110, 220, .11) 0%, transparent 72%),
+    radial-gradient(21vmax 1.6vmax at 58% 60%, rgba(168, 132, 232, .09) 0%, transparent 72%);
+  animation-name: wisp-b-move;
+  animation-duration: 178s;
+}
+@keyframes wisp-b-move {
+  0%, 100% { transform: rotate(19deg) translate3d(0, 0, 0) scale(1.05);  opacity: .95; }
+  50%      { transform: rotate(19deg) translate3d(-1.4%, 1.2%, 0) scale(1); opacity: .55; }
+}
+
+/* amber is the rare accent: one small warm ember, deliberately faint */
+.neb-c {
+  background:
+    radial-gradient(16vmax 13vmax at 77% 72%, rgba(248, 164, 95, .20) 0%, rgba(186, 104, 56, .07) 42%, transparent 72%),
+    radial-gradient(6vmax 5vmax   at 78% 73%, rgba(255, 202, 154, .17) 0%, transparent 64%),
+    radial-gradient(9vmax 4vmax   at 71% 68%, rgba(248, 164, 95, .09) 0%, transparent 70%),
+    radial-gradient(11vmax 9vmax  at 10% 9%,  rgba(248, 164, 95, .05) 0%, transparent 70%);
+  animation-name: breathe-c;
+  animation-duration: 96s;
+}
+@keyframes breathe-c {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1);           opacity: .55; }
+  50%      { transform: translate3d(-1%, -.8%, 0) scale(1.12);   opacity: .95; }
+}
+
+/* --- 9. dark dust lanes --------------------------------------------------
+   Multiplying the ground colour back over the clouds carves negative space
+   into them. Rotated so the lanes run with the band, not across it.          */
+.dust {
+  inset: -45%;
+  mix-blend-mode: multiply;
+  opacity: .9;
+  /* Every stop runs colour -> fully transparent at 100%, so there is no edge
+     anywhere; aspect ratios stay under ~4:1 so these read as density, not as
+     streaks across the plate. */
+  background:
+    radial-gradient(20vmax 6vmax   at 37% 45%, rgba(5, 7, 13, .60), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(13vmax 4.5vmax at 25% 49%, rgba(5, 7, 13, .50), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(24vmax 7vmax   at 57% 53%, rgba(5, 7, 13, .52), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(11vmax 8vmax   at 45% 38%, rgba(5, 7, 13, .42), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(16vmax 5vmax   at 70% 58%, rgba(5, 7, 13, .46), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(9vmax 7vmax    at 64% 66%, rgba(5, 7, 13, .34), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(13vmax 4vmax   at 81% 43%, rgba(5, 7, 13, .38), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(8vmax 6vmax    at 30% 61%, rgba(5, 7, 13, .32), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(15vmax 5vmax   at 18% 40%, rgba(5, 7, 13, .36), rgba(5, 7, 13, 0) 100%);
+  animation-name: dust-drift;
+  animation-duration: 230s;
+}
+@keyframes dust-drift {
+  0%, 100% { transform: rotate(-30deg) translate3d(0, 0, 0) scale(1.04); }
+  50%      { transform: rotate(-30deg) translate3d(-1.4%, .9%, 0) scale(1); }
+}
+
+/* --- 13b. globular cluster ----------------------------------------------
+   A single non-tiling knot of resolved pinpoints with its own unresolved
+   glow, sitting inside the cyan nebulosity. Pure detail — but it is the
+   detail that makes the frame read as a telescope plate. */
+.cluster {
+  inset: auto;
+  left: 23%; top: 31%;
+  width: 150px; height: 150px;
+  margin: -75px 0 0 -75px;
+  background-image:
+    radial-gradient(circle at 124.93px 20.67px,rgba(255,255,255,0.54) 0,rgba(255,255,255,0.54) 0.51px,rgba(255,255,255,0.16) 0.97px,rgba(255,255,255,0) 1.73px),radial-gradient(circle at 62.63px 108.38px,rgba(208,232,255,0.5) 0,rgba(208,232,255,0.5) 0.96px,rgba(208,232,255,0.15) 1.83px,rgba(208,232,255,0) 3.27px),radial-gradient(circle at 56.65px 118.75px,rgba(208,232,255,0.51) 0,rgba(208,232,255,0.51) 0.79px,rgba(208,232,255,0.15) 1.49px,rgba(208,232,255,0) 2.67px),radial-gradient(circle at 123.86px 118.48px,rgba(208,232,255,0.49) 0,rgba(208,232,255,0.49) 0.54px,rgba(208,232,255,0.15) 1.03px,rgba(208,232,255,0) 1.84px),radial-gradient(circle at 90.01px 122.84px,rgba(255,255,255,0.5) 0,rgba(255,255,255,0.5) 0.79px,rgba(255,255,255,0.15) 1.5px,rgba(255,255,255,0) 2.68px),radial-gradient(circle at 69.11px 14.01px,rgba(255,255,255,0.59) 0,rgba(255,255,255,0.59) 0.56px,rgba(255,255,255,0.18) 1.07px,rgba(255,255,255,0) 1.91px),radial-gradient(circle at 137.62px 90.5px,rgba(208,232,255,0.41) 0,rgba(208,232,255,0.41) 0.55px,rgba(208,232,255,0.12) 1.05px,rgba(208,232,255,0) 1.88px),radial-gradient(circle at 80.92px 120.73px,rgba(208,232,255,0.71) 0,rgba(208,232,255,0.71) 0.73px,rgba(208,232,255,0.21) 1.4px,rgba(208,232,255,0) 2.5px),radial-gradient(circle at 60.76px 134.28px,rgba(255,255,255,0.46) 0,rgba(255,255,255,0.46) 0.61px,rgba(255,255,255,0.14) 1.16px,rgba(255,255,255,0) 2.08px),radial-gradient(circle at 101.43px 133.52px,rgba(255,255,255,0.38) 0,rgba(255,255,255,0.38) 0.63px,rgba(255,255,255,0.11) 1.19px,rgba(255,255,255,0) 2.13px),radial-gradient(circle at 32.55px 39.31px,rgba(208,232,255,0.39) 0,rgba(208,232,255,0.39) 0.71px,rgba(208,232,255,0.12) 1.34px,rgba(208,232,255,0) 2.41px),radial-gradient(circle at 138.97px 100.19px,rgba(255,255,255,0.51) 0,rgba(255,255,255,0.51) 0.56px,rgba(255,255,255,0.15) 1.07px,rgba(255,255,255,0) 1.92px),radial-gradient(circle at 30.9px 66.41px,rgba(208,232,255,0.46) 0,rgba(208,232,255,0.46) 0.67px,rgba(208,232,255,0.14) 1.27px,rgba(208,232,255,0) 2.27px),radial-gradient(circle at 7.15px 88.17px,rgba(208,232,255,0.42) 0,rgba(208,232,255,0.42) 0.52px,rgba(208,232,255,0.13) 0.99px,rgba(208,232,255,0) 1.78px),radial-gradient(circle at 106.89px 39.19px,rgba(208,232,255,0.41) 0,rgba(208,232,255,0.41) 0.81px,rgba(208,232,255,0.12) 1.55px,rgba(208,232,255,0) 2.77px),radial-gradient(circle at 133.67px 63.54px,rgba(208,232,255,0.38) 0,rgba(208,232,255,0.38) 0.6px,rgba(208,232,255,0.11) 1.14px,rgba(208,232,255,0) 2.04px),radial-gradient(circle at 17.66px 49.49px,rgba(208,232,255,0.6) 0,rgba(208,232,255,0.6) 0.61px,rgba(208,232,255,0.18) 1.15px,rgba(208,232,255,0) 2.06px),radial-gradient(circle at 24.1px 85.63px,rgba(255,255,255,0.64) 0,rgba(255,255,255,0.64) 0.61px,rgba(255,255,255,0.19) 1.16px,rgba(255,255,255,0) 2.08px),radial-gradient(circle at 137.29px 85.6px,rgba(255,255,255,0.61) 0,rgba(255,255,255,0.61) 0.54px,rgba(255,255,255,0.18) 1.02px,rgba(255,255,255,0) 1.83px),radial-gradient(circle at 80.01px 23.59px,rgba(208,232,255,0.56) 0,rgba(208,232,255,0.56) 0.6px,rgba(208,232,255,0.17) 1.14px,rgba(208,232,255,0) 2.04px),radial-gradient(circle at 87.81px 12.24px,rgba(208,232,255,0.59) 0,rgba(208,232,255,0.59) 0.56px,rgba(208,232,255,0.18) 1.07px,rgba(208,232,255,0) 1.91px),radial-gradient(circle at 66.92px 140.73px,rgba(255,255,255,0.55) 0,rgba(255,255,255,0.55) 0.6px,rgba(255,255,255,0.16) 1.15px,rgba(255,255,255,0) 2.05px),radial-gradient(circle at 106.39px 66.7px,rgba(255,255,255,0.46) 0,rgba(255,255,255,0.46) 0.7px,rgba(255,255,255,0.14) 1.34px,rgba(255,255,255,0) 2.4px),radial-gradient(circle at 74.3px 37.39px,rgba(208,232,255,0.72) 0,rgba(208,232,255,0.72) 0.59px,rgba(208,232,255,0.22) 1.12px,rgba(208,232,255,0) 2px),radial-gradient(circle at 61.91px 103.94px,rgba(208,232,255,0.66) 0,rgba(208,232,255,0.66) 0.55px,rgba(208,232,255,0.2) 1.05px,rgba(208,232,255,0) 1.88px),radial-gradient(circle at 36.53px 113.1px,rgba(208,232,255,0.66) 0,rgba(208,232,255,0.66) 0.76px,rgba(208,232,255,0.2) 1.45px,rgba(208,232,255,0) 2.6px),radial-gradient(circle at 27.04px 30.12px,rgba(208,232,255,0.5) 0,rgba(208,232,255,0.5) 0.52px,rgba(208,232,255,0.15) 0.98px,rgba(208,232,255,0) 1.75px),radial-gradient(circle at 49.65px 114.66px,rgba(208,232,255,0.47) 0,rgba(208,232,255,0.47) 0.79px,rgba(208,232,255,0.14) 1.5px,rgba(208,232,255,0) 2.68px),radial-gradient(circle at 24.99px 84.06px,rgba(208,232,255,0.4) 0,rgba(208,232,255,0.4) 0.74px,rgba(208,232,255,0.12) 1.41px,rgba(208,232,255,0) 2.53px),radial-gradient(circle at 113.23px 38.68px,rgba(208,232,255,0.6) 0,rgba(208,232,255,0.6) 0.56px,rgba(208,232,255,0.18) 1.06px,rgba(208,232,255,0) 1.9px),radial-gradient(circle at 62.2px 108.96px,rgba(208,232,255,0.68) 0,rgba(208,232,255,0.68) 0.85px,rgba(208,232,255,0.2) 1.61px,rgba(208,232,255,0) 2.89px),radial-gradient(circle at 64.72px 100.61px,rgba(208,232,255,0.65) 0,rgba(208,232,255,0.65) 0.64px,rgba(208,232,255,0.19) 1.21px,rgba(208,232,255,0) 2.17px),radial-gradient(circle at 116.54px 83.12px,rgba(208,232,255,0.7) 0,rgba(208,232,255,0.7) 0.55px,rgba(208,232,255,0.21) 1.05px,rgba(208,232,255,0) 1.88px),radial-gradient(circle at 91.22px 66.72px,rgba(208,232,255,0.65) 0,rgba(208,232,255,0.65) 1.26px,rgba(208,232,255,0.2) 2.39px,rgba(208,232,255,0) 4.27px),radial-gradient(circle at 60.04px 40.15px,rgba(208,232,255,0.53) 0,rgba(208,232,255,0.53) 0.84px,rgba(208,232,255,0.16) 1.6px,rgba(208,232,255,0) 2.85px),radial-gradient(circle at 54.78px 100.1px,rgba(255,255,255,0.77) 0,rgba(255,255,255,0.77) 0.62px,rgba(255,255,255,0.23) 1.17px,rgba(255,255,255,0) 2.1px),radial-gradient(circle at 103.1px 138.35px,rgba(255,255,255,0.4) 0,rgba(255,255,255,0.4) 0.57px,rgba(255,255,255,0.12) 1.09px,rgba(255,255,255,0) 1.94px),radial-gradient(circle at 58.1px 51.49px,rgba(255,255,255,0.75) 0,rgba(255,255,255,0.75) 0.59px,rgba(255,255,255,0.22) 1.13px,rgba(255,255,255,0) 2.01px),radial-gradient(circle at 112.41px 88.38px,rgba(208,232,255,0.66) 0,rgba(208,232,255,0.66) 0.94px,rgba(208,232,255,0.2) 1.79px,rgba(208,232,255,0) 3.2px),radial-gradient(circle at 22.59px 52.47px,rgba(208,232,255,0.48) 0,rgba(208,232,255,0.48) 0.62px,rgba(208,232,255,0.15) 1.19px,rgba(208,232,255,0) 2.12px),radial-gradient(circle at 100.02px 33.07px,rgba(255,255,255,0.64) 0,rgba(255,255,255,0.64) 0.69px,rgba(255,255,255,0.19) 1.32px,rgba(255,255,255,0) 2.36px),radial-gradient(circle at 104.55px 59.71px,rgba(208,232,255,0.51) 0,rgba(208,232,255,0.51) 0.92px,rgba(208,232,255,0.15) 1.74px,rgba(208,232,255,0) 3.12px),radial-gradient(circle at 82.12px 116.03px,rgba(208,232,255,0.62) 0,rgba(208,232,255,0.62) 0.8px,rgba(208,232,255,0.18) 1.52px,rgba(208,232,255,0) 2.72px),radial-gradient(circle at 45.91px 18.4px,rgba(255,255,255,0.49) 0,rgba(255,255,255,0.49) 0.63px,rgba(255,255,255,0.15) 1.2px,rgba(255,255,255,0) 2.15px),radial-gradient(circle at 14.34px 97.49px,rgba(255,255,255,0.55) 0,rgba(255,255,255,0.55) 0.51px,rgba(255,255,255,0.16) 0.97px,rgba(255,255,255,0) 1.74px),radial-gradient(circle at 108.89px 48.6px,rgba(208,232,255,0.63) 0,rgba(208,232,255,0.63) 0.61px,rgba(208,232,255,0.19) 1.15px,rgba(208,232,255,0) 2.06px),radial-gradient(circle at 90.45px 80.83px,rgba(208,232,255,0.51) 0,rgba(208,232,255,0.51) 0.95px,rgba(208,232,255,0.15) 1.8px,rgba(208,232,255,0) 3.23px),radial-gradient(circle at 45.57px 128.21px,rgba(208,232,255,0.39) 0,rgba(208,232,255,0.39) 0.56px,rgba(208,232,255,0.12) 1.06px,rgba(208,232,255,0) 1.89px),radial-gradient(circle at 91.19px 94.04px,rgba(208,232,255,0.68) 0,rgba(208,232,255,0.68) 0.52px,rgba(208,232,255,0.21) 0.99px,rgba(208,232,255,0) 1.77px),radial-gradient(circle at 64.62px 51.37px,rgba(208,232,255,0.79) 0,rgba(208,232,255,0.79) 0.96px,rgba(208,232,255,0.24) 1.82px,rgba(208,232,255,0) 3.25px),radial-gradient(circle at 88.93px 71.11px,rgba(255,255,255,0.59) 0,rgba(255,255,255,0.59) 0.98px,rgba(255,255,255,0.18) 1.86px,rgba(255,255,255,0) 3.33px),radial-gradient(circle at 65.87px 47.94px,rgba(208,232,255,0.61) 0,rgba(208,232,255,0.61) 0.73px,rgba(208,232,255,0.18) 1.39px,rgba(208,232,255,0) 2.48px),
+    radial-gradient(circle closest-side, rgba(190, 230, 255, .09) 0%, rgba(110, 180, 224, .03) 36%, rgba(159, 231, 255, 0) 68%);
+  background-repeat: no-repeat;
+  animation-name: cluster-breathe;
+  animation-duration: 74s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+@keyframes cluster-breathe {
+  0%, 100% { transform: scale(1);    opacity: .78; }
+  50%      { transform: scale(1.04); opacity: 1; }
+}
+
+/* --- 14. hero stars ------------------------------------------------------ */
+.hero {
+  position: absolute;
+  width: var(--s); height: var(--s);
+  margin-left: calc(var(--s) / -2);
+  margin-top: calc(var(--s) / -2);
+  opacity: var(--base);
+  background: radial-gradient(circle closest-side,
+    rgba(255, 255, 255, .98) 0%,
+    rgba(255, 255, 255, .62) 5%,
+    rgba(var(--tint), .34) 12%,
+    rgba(var(--tint), .13) 25%,
+    rgba(var(--tint), .04) 45%,
+    rgba(var(--tint), 0)   72%);
+  animation-name: twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+/* four-point diffraction spikes — what makes it read as a telescope plate */
+.hero::before, .hero::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: calc(var(--s) * var(--spike));
+  height: 1px;
+  margin-left: calc(var(--s) * var(--spike) / -2);
+  margin-top: -.5px;
+  background: linear-gradient(90deg,
+    rgba(var(--tint), 0)   0%,
+    rgba(var(--tint), .06) 32%,
+    rgba(255, 255, 255, .38) 50%,
+    rgba(var(--tint), .06) 68%,
+    rgba(var(--tint), 0)   100%);
+}
+.hero::after { transform: rotate(90deg); transform-origin: 50% 50%; }
 @keyframes twinkle {
-    0% { opacity: 0.18; }
-    100% { opacity: 0.42; }
+  0%, 100% { transform: scale(.90); opacity: calc(var(--base) * .58); }
+  50%      { transform: scale(1.07); opacity: var(--base); }
 }
 
-@keyframes drift {
-    0% { transform: translate(0, 0); }
-    100% { transform: translate(-280px, -280px); }
+  .h1 { --s: 74px; --tint: 159,231,255; --spike: 3.6; --base: 0.8;
+    left: 16%; top: 21%; animation-duration: 11s; animation-delay: 0s; }
+  .h2 { --s: 96px; --tint: 255,224,192; --spike: 4; --base: 0.95;
+    left: 73%; top: 15%; animation-duration: 15s; animation-delay: -4s; }
+  .h3 { --s: 60px; --tint: 159,231,255; --spike: 3.2; --base: 0.62;
+    left: 89%; top: 62%; animation-duration: 9s; animation-delay: -2s; }
+  .h4 { --s: 66px; --tint: 248,164,95; --spike: 3.2; --base: 0.55;
+    left: 29%; top: 79%; animation-duration: 13s; animation-delay: -7s; }
+  .h5 { --s: 46px; --tint: 208,232,255; --spike: 2.8; --base: 0.42;
+    left: 60%; top: 41%; animation-duration: 8s; animation-delay: -5s; }
+  .h6 { --s: 52px; --tint: 208,232,255; --spike: 2.8; --base: 0.46;
+    left: 7%; top: 58%; animation-duration: 17s; animation-delay: -11s; }
+  .h7 { --s: 50px; --tint: 159,231,255; --spike: 2.8; --base: 0.4;
+    left: 44%; top: 7%; animation-duration: 12s; animation-delay: -9s; }
+
+/* --- 15. instrument graticule -------------------------------------------
+   Measurement hairlines at the threshold of visibility, masked out of the
+   centre so they never compete with the UI. Plate texture, not decoration.  */
+.graticule {
+  opacity: .34;
+  background:
+    repeating-linear-gradient(90deg, rgba(159, 231, 255, .05) 0 1px, transparent 1px 128px),
+    repeating-linear-gradient(0deg,  rgba(159, 231, 255, .04) 0 1px, transparent 1px 128px);
+  -webkit-mask-image: radial-gradient(115% 105% at 50% 50%, transparent 34%, rgba(0, 0, 0, .45) 68%, #000 100%);
+          mask-image: radial-gradient(115% 105% at 50% 50%, transparent 34%, rgba(0, 0, 0, .45) 68%, #000 100%);
 }
 
-@keyframes nebulaPulse {
-    0% { opacity: 0.55; }
-    100% { opacity: 1; }
+/* --- 16. sensor grain ----------------------------------------------------
+   Two passes. 'overlay' dithers the huge soft gradients — this is the
+   anti-banding workhorse on a wide display. 'screen' adds hot-pixel glitter. */
+.grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' seed='7' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 220px 220px;
+  opacity: .14;
+  mix-blend-mode: overlay;
+}
+.grain-2 {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='3' seed='19' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  opacity: .04;
+  mix-blend-mode: screen;
 }
 
+/* --- 17. vignette -------------------------------------------------------- */
+.vignette {
+  background:
+    radial-gradient(122% 100% at 50% 44%, transparent 22%, rgba(4, 6, 12, .30) 52%, rgba(3, 4, 9, .74) 82%, rgba(1, 2, 5, .96) 100%),
+    linear-gradient(180deg, rgba(4, 6, 12, .46) 0%, transparent 18%, transparent 72%, rgba(4, 6, 12, .60) 100%);
+}
+
+/* ===========================================================================
+   REDUCED MOTION — the sky holds its pose.
+   =========================================================================== */
 @media (prefers-reduced-motion: reduce) {
-    body::before,
-    body::after {
-        animation: none;
-    }
+  .sky *, .sky *::before, .sky *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  /* park the breathing layers near their mid-state so nothing looks unfinished */
+  .band   { transform: rotate(-24deg) scale(1.03); opacity: .86; }
+  .neb-a  { transform: scale(1.05); opacity: .88; }
+  .neb-b  { transform: scale(1.03); opacity: .82; }
+  .neb-c  { transform: scale(1.06); opacity: .78; }
+  .wisp-a { transform: rotate(-34deg) scale(1.04); opacity: .84; }
+  .wisp-b { transform: rotate(19deg) scale(1.03); opacity: .78; }
+  .dust   { transform: rotate(-30deg) scale(1.02); }
+  .hero   { transform: scale(1); }
 }
 
 /* ================= HEADER ================= */
@@ -134,6 +446,8 @@ body::after {
     font-size: clamp(0.65rem, 2.2vw, 0.85rem);
     letter-spacing: 0.28em;
     color: rgba(255, 255, 255, 0.6);
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .header-tools {
@@ -214,22 +528,39 @@ body::after {
     pointer-events: auto;
 }
 
-/* CALCULATOR */
+/* CALCULATOR
+   The sky behind is now genuinely bright in places, so the instrument needs
+   its own body to sit in — otherwise the keys dissolve into the nebula. */
 .calculator {
     width: min(425px, 100%);
     padding: clamp(12px, 3vw, 26px) clamp(12px, 3vw, 26px) clamp(10px, 2.4vw, 18px);
-    background: transparent;
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 0;
     position: relative;
     transform: translateY(0);
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+    background: linear-gradient(
+        180deg,
+        rgba(10, 18, 32, 0.52),
+        rgba(6, 11, 20, 0.62)
+    );
+    border: 1px solid rgba(159, 231, 255, 0.09);
+    border-radius: clamp(22px, 4vw, 32px);
+    backdrop-filter: blur(18px) saturate(115%);
+    -webkit-backdrop-filter: blur(18px) saturate(115%);
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .calculator:hover {
     transform: translateY(-3px);
+    box-shadow:
+        0 30px 70px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 /* ================= DISPLAY ================= */
@@ -478,6 +809,17 @@ button:active {
 button:focus-visible {
     outline: 2px solid var(--operator-color);
     outline-offset: 2px;
+}
+
+/* a hairline top edge reads as a moulded key rather than a flat rectangle */
+.buttons button {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.buttons button:hover {
+    box-shadow:
+        0 10px 20px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* NUMBERS */
@@ -949,8 +1291,29 @@ button:focus-visible {
         width: 100vw;
     }
 
+    /* seven controls plus the wordmark cannot share a line at this width,
+       so the header becomes two deliberate rows instead of a ragged wrap */
+    .app-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
     .app-title {
         letter-spacing: 0.18em;
+        font-size: 0.68rem;
+    }
+
+    .header-tools {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: nowrap;
+        gap: 4px;
+    }
+
+    .chip {
+        padding: 0 7px;
+        letter-spacing: 0.04em;
     }
 }
 
