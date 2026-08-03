@@ -83,26 +83,26 @@ const TYPE_LABELS = {
 
 function loadProfile() {
     try {
-        return JSON.parse(localStorage.getItem(STORAGE_PROFILE)) || { name: "" };
+        return JSON.parse(storeGet(STORAGE_PROFILE)) || { name: "" };
     } catch (e) {
         return { name: "" };
     }
 }
 
 function saveProfile(profile) {
-    localStorage.setItem(STORAGE_PROFILE, JSON.stringify(profile));
+    storeSet(STORAGE_PROFILE, JSON.stringify(profile));
 }
 
 function loadEntries() {
     try {
-        return JSON.parse(localStorage.getItem(STORAGE_ENTRIES)) || [];
+        return JSON.parse(storeGet(STORAGE_ENTRIES)) || [];
     } catch (e) {
         return [];
     }
 }
 
 function saveEntries(entries) {
-    localStorage.setItem(STORAGE_ENTRIES, JSON.stringify(entries));
+    storeSet(STORAGE_ENTRIES, JSON.stringify(entries));
 }
 
 let profile = loadProfile();
@@ -148,23 +148,57 @@ const cq = id => document.getElementById(id);
 
 const modal = cq("mission-modal");
 
+const FOCUSABLE = 'button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])';
+
+let lastFocused = null;
+
 function openMission() {
+    lastFocused = document.activeElement;
+
     modal.classList.add("open");
     modal.setAttribute("aria-hidden", "false");
     cq("mission-open").setAttribute("aria-expanded", "true");
     renderAll();
-    document.addEventListener("keydown", escapeMission);
+
+    document.addEventListener("keydown", missionKeys);
+    setTimeout(() => cq("mission-name").focus(), 60);
 }
 
 function closeMission() {
     modal.classList.remove("open");
     modal.setAttribute("aria-hidden", "true");
     cq("mission-open").setAttribute("aria-expanded", "false");
-    document.removeEventListener("keydown", escapeMission);
+    document.removeEventListener("keydown", missionKeys);
+
+    // send focus back where it came from, or keyboard users get stranded
+    if (lastFocused && document.contains(lastFocused)) lastFocused.focus();
 }
 
-function escapeMission(event) {
-    if (event.key === "Escape") closeMission();
+/* Escape closes, and Tab is trapped inside the dialog so keyboard users
+   cannot wander onto the calculator behind it. */
+function missionKeys(event) {
+    if (event.key === "Escape") {
+        closeMission();
+        return;
+    }
+
+    if (event.key !== "Tab") return;
+
+    const items = [...modal.querySelectorAll(FOCUSABLE)]
+        .filter(node => node.offsetParent !== null);
+
+    if (!items.length) return;
+
+    const first = items[0];
+    const last = items[items.length - 1];
+
+    if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+    }
 }
 
 cq("mission-open").addEventListener("click", openMission);
@@ -364,6 +398,7 @@ function renderEntries() {
         const remove = el("button", "text-btn danger", "Sil");
         remove.type = "button";
         remove.addEventListener("click", () => {
+            if (!confirm("Bu katkı kalıcı olarak silinecek. Emin misin?")) return;
             entries = entries.filter(e => e.id !== entry.id);
             saveEntries(entries);
             renderAll();
@@ -380,6 +415,62 @@ function renderEntries() {
 // ---------------------------------------------------------------------
 
 let hallLoaded = false;
+
+/* Deterministic hash: a contributor's star must appear in the same place
+   every visit, otherwise it isn't "their" star. */
+function hashName(name) {
+    let hash = 2166136261;
+    for (let i = 0; i < name.length; i++) {
+        hash ^= name.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return Math.abs(hash);
+}
+
+/* Stars are placed in the margins around the calculator column, so they
+   never sit on top of the keypad. */
+function renderStarMap(people) {
+    const map = cq("star-map");
+    if (!map) return;
+
+    map.textContent = "";
+
+    const eligible = people.filter(p => (p.accepted || 0) > 0);
+
+    eligible.forEach((person, index) => {
+        const hash = hashName(person.name);
+        const onRight = index % 2 === 1;
+
+        // keep clear of the centre column where the calculator lives
+        const side = onRight ? 72 + (hash % 22) : 4 + (hash % 22);
+        const band = eligible.length > 1 ? index / (eligible.length - 1 || 1) : 0.35;
+        const top = 12 + band * 64 + ((hash >> 5) % 9);
+
+        const star = document.createElement("button");
+        star.type = "button";
+        star.className = "contrib-star" + (onRight ? " right" : "");
+        star.style.left = side + "%";
+        star.style.top = Math.min(88, top) + "%";
+        star.style.setProperty("--star-size", (6 + (hash % 4)) + "px");
+        star.style.setProperty("--star-delay", ((hash % 40) / 10) + "s");
+        star.setAttribute(
+            "aria-label",
+            person.name + " — kabul edilen katkı: " + (person.accepted || 0)
+        );
+
+        star.append(el("span", "core"), el("span", "label", person.name));
+
+        star.addEventListener("click", () => {
+            star.classList.add("revealed");
+            setTimeout(() => star.classList.remove("revealed"), 2600);
+        });
+
+        map.appendChild(star);
+    });
+
+    // the map sits behind the UI, so only expose it to AT when populated
+    map.setAttribute("aria-hidden", eligible.length ? "false" : "true");
+}
 
 async function renderHall() {
     if (hallLoaded) return;
@@ -405,6 +496,8 @@ async function renderHall() {
     const people = (data.contributors || [])
         .slice()
         .sort((a, b) => (b.xp || 0) - (a.xp || 0));
+
+    renderStarMap(people);
 
     if (!people.length) {
         list.appendChild(el("li", "mission-empty", "Pano henüz boş — ilk sen ol!"));
@@ -454,3 +547,21 @@ function renderAll() {
     renderEntries();
     renderHall();
 }
+
+/* The sky should already carry the contributors on first paint, not only
+   once someone opens the Hall of Fame. */
+(async function bootStarMap() {
+    try {
+        const response = await fetch("contributors.json", { cache: "no-cache" });
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const people = (data.contributors || [])
+            .slice()
+            .sort((a, b) => (b.xp || 0) - (a.xp || 0));
+
+        renderStarMap(people);
+    } catch (e) {
+        /* offline first run: the sky simply stays empty */
+    }
+})();

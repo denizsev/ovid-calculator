@@ -210,12 +210,43 @@ yapmak yerine üç katmanlı, gerçekten çalışan bir yapı kuruldu:
   Yıldız Amirali. Rozetlerde **kıtlık** ilkesi: "Yıldız Kâşifi" yalnızca
   katkısı kabul edilenlere.
 
+### ✅ İsimli yıldızlar — YAPILDI
+Kabul edilen her katkı arka planda **isimli bir yıldıza** dönüşüyor.
+Konum, kişinin adından türetilen bir hash ile belirleniyor; yani yıldız her
+ziyarette aynı yerde — "onun yıldızı" olması bunu gerektiriyor.
+Üzerine gelince (veya dokununca) ad beliriyor.
+
+Teknik notlar:
+- Yıldız katmanı `z-index: -1`, yani her şeyin arkasında — tuşları kapatmıyor.
+- `.main-section` yalnızca ortalama kabı olduğu için `pointer-events: none`
+  yapıldı; aksi halde tüm alanı yakalayıp yıldızları erişilmez kılıyordu.
+- Konumlar orta sütundan uzak tutuluyor (sol %4–26 / sağ %72–94).
+
 ### Kalan iş
-- [ ] Kabul edilen katkının arka planda **isimli bir yıldıza** dönüşmesi
-      (yol haritasındaki D maddesiyle birleşir — panoyu temaya bağlar)
 - [ ] Haftalık/aylık pano segmentasyonu (araştırma önerisi)
 - [ ] Aynı öneriye oy verme (şu an sunucusuz mümkün değil; GitHub issue
       reaksiyonları bunu zaten sağlıyor)
+
+---
+
+## 6b. Önden temizlenen şikâyetler (YAPILDI)
+
+Araştırmada tespit edilen ve bizim sitede de çıkabilecek sorunlar,
+kullanıcı şikâyet etmeden önce kapatıldı:
+
+| Olası şikâyet | Çözüm |
+|---|---|
+| "Tuşlar ve yazılar çok küçük" | Üst bardaki **A / A+ / A++** düğmesi; tuş ve yazı boyutu üç kademe, tercih kalıcı |
+| Ekran okuyucu tuşları anlamsız okuyor (⌫, ±, √) | Tüm sembol tuşlarına `aria-label` |
+| Klavye kullanıcısı modalda kayboluyor | Görev Merkezi'nde **odak tuzağı** + kapanınca odak geri döner |
+| "Yanlışlıkla geçmişimi sildim" | Geçmiş temizleme ve katkı silme artık **onay soruyor** |
+| Safari gizli sekmede uygulama çöküyor | `localStorage` erişimi try/catch ile sarıldı; başarısızsa bellekte devam eder |
+| "Uzun sonucu göremiyorum" | Sonuç kırpılmak yerine **kademeli küçülüyor**, çok uzunsa alt satıra iniyor |
+| "sin yazamıyorum, tuş aramak zorundayım" | Klavyeden fonksiyon adı ve birim yazılabiliyor (`sin(30)`, `5km+300m`) |
+
+Not: Büyük boyut modu ilk denemede üst barı taşırıp yatay kaydırma yaratıyordu;
+boyutlandırma yalnızca tuş takımına uygulanacak şekilde sınırlandırıldı
+(üst bar kontrolleri içerik değil, arayüz kromu).
 
 ---
 
