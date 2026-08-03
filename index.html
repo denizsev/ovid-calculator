@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Ovid Calculator — uzay temalı bilimsel hesap makinesi. Anlık sonuç, birim çevirici, evrensel sabitler ve çevrimdışı destek.">
+    <meta name="theme-color" content="#05070d">
     <title>Ovid Calculator</title>
+    <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -11,19 +14,23 @@
 </head>
 <body>
 
-<video autoplay muted loop playsinline id="bg-video">
+<video autoplay muted loop playsinline preload="metadata" id="bg-video">
    <source src="images/spacetravel-loop.mp4" type="video/mp4">
 </video>
 
 <header class="app-header">
     <div class="app-title">OVID CALCULATOR</div>
 
-    <button id="history-toggle" class="icon-btn" type="button" aria-label="Geçmişi göster" aria-expanded="false" title="Geçmiş">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="9"></circle>
-            <polyline points="12 7 12 12 15 14"></polyline>
-        </svg>
-    </button>
+    <div class="header-tools">
+        <button id="angle-toggle" class="chip" type="button" title="Açı birimi (derece / radyan)">DEG</button>
+        <button id="sound-toggle" class="chip" type="button" title="Sesi aç/kapat" aria-pressed="true">🔊</button>
+        <button id="panel-toggle" class="icon-btn" type="button" aria-label="Panelleri aç" aria-expanded="false" title="Geçmiş, sabitler ve çevirici">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9"></circle>
+                <polyline points="12 7 12 12 15 14"></polyline>
+            </svg>
+        </button>
+    </div>
 </header>
 
 <main class="main-section">
@@ -32,21 +39,51 @@
 
     <!-- DISPLAY -->
     <div id="display">
-        <div class="memory-indicator" id="memory-indicator">M</div>
+        <div class="display-badges">
+            <span class="memory-indicator" id="memory-indicator" title="Bellekte değer var">M</span>
+            <span class="angle-indicator" id="angle-indicator">DEG</span>
+        </div>
         <div class="top" id="expr-line">0</div>
         <div class="bottom copyable" id="result-line" title="Kopyalamak için tıkla">0</div>
+        <div class="sr-only" id="a11y-result" role="status" aria-live="polite"></div>
     </div>
 
     <div class="calculator-divider" aria-hidden="true"></div>
 
-    <!-- SCIENTIFIC / MEMORY ROW -->
+    <!-- SCIENTIFIC PAD (collapsible) -->
     <div class="sci-buttons">
         <div class="sci-row memory-row">
             <button class="sci" id="mc" title="Belleği temizle">MC</button>
             <button class="sci" id="mr" title="Belleği getir">MR</button>
             <button class="sci" id="mplus" title="Belleğe ekle">M+</button>
             <button class="sci" id="mminus" title="Bellekten çıkar">M-</button>
+            <button class="sci sci-expand" id="sci-toggle" type="button" aria-expanded="false" title="Bilimsel fonksiyonlar">fx</button>
         </div>
+
+        <div class="sci-advanced" id="sci-advanced" hidden>
+            <div class="sci-row function-row">
+                <button class="sci" id="second" type="button" aria-pressed="false" title="İkincil fonksiyonlar">2nd</button>
+                <button class="sci fn" data-fn="sin" data-alt="asin">sin</button>
+                <button class="sci fn" data-fn="cos" data-alt="acos">cos</button>
+                <button class="sci fn" data-fn="tan" data-alt="atan">tan</button>
+                <button class="sci fn" data-fn="ln" data-alt="exp">ln</button>
+            </div>
+            <div class="sci-row function-row">
+                <button class="sci fn" data-fn="log" data-alt="10^">log</button>
+                <button class="sci" id="power" title="Üs al">x^y</button>
+                <button class="sci" id="inverse" title="Çarpmaya göre ters">1/x</button>
+                <button class="sci" id="factorial" title="Faktöriyel">n!</button>
+                <button class="sci" id="mod" title="Kalan (mod)">mod</button>
+            </div>
+            <div class="sci-row function-row">
+                <button class="sci" id="const-pi" title="Pi sayısı">π</button>
+                <button class="sci" id="const-e" title="Euler sayısı">e</button>
+                <button class="sci" id="rand" title="Rastgele sayı">rnd</button>
+                <button class="sci" id="undo" title="Geri al (Ctrl+Z)">↶</button>
+                <button class="sci" id="redo" title="İleri al (Ctrl+Y)">↷</button>
+            </div>
+        </div>
+
         <div class="sci-row function-row">
             <button class="sci" id="paren-open">(</button>
             <button class="sci" id="paren-close">)</button>
@@ -87,12 +124,56 @@
 
 </section>
 
-<aside class="history-panel" id="history-panel" aria-hidden="true">
-    <div class="history-header">
-        <span>Geçmiş</span>
-        <button id="history-clear" class="text-btn" type="button">Temizle</button>
+<aside class="side-panel" id="side-panel" aria-hidden="true">
+    <div class="panel-tabs" role="tablist">
+        <button class="panel-tab active" data-tab="history" role="tab" aria-selected="true">Geçmiş</button>
+        <button class="panel-tab" data-tab="constants" role="tab" aria-selected="false">Sabitler</button>
+        <button class="panel-tab" data-tab="convert" role="tab" aria-selected="false">Çevirici</button>
     </div>
-    <ul id="history-list" class="history-list"></ul>
+
+    <div class="panel-body">
+        <section class="panel-pane active" id="pane-history" role="tabpanel">
+            <div class="panel-head">
+                <span>Son işlemler</span>
+                <button id="history-clear" class="text-btn" type="button">Temizle</button>
+            </div>
+            <ul id="history-list" class="history-list"></ul>
+        </section>
+
+        <section class="panel-pane" id="pane-constants" role="tabpanel">
+            <div class="panel-head"><span>Evrensel sabitler</span></div>
+            <ul id="constants-list" class="constants-list"></ul>
+        </section>
+
+        <section class="panel-pane" id="pane-convert" role="tabpanel">
+            <div class="panel-head"><span>Birim çevirici</span></div>
+
+            <label class="field">
+                <span>Kategori</span>
+                <select id="convert-category"></select>
+            </label>
+
+            <label class="field">
+                <span>Değer</span>
+                <input id="convert-input" type="number" inputmode="decimal" value="1">
+            </label>
+
+            <div class="convert-row">
+                <label class="field">
+                    <span>Kaynak</span>
+                    <select id="convert-from"></select>
+                </label>
+                <button id="convert-swap" class="text-btn" type="button" title="Birimleri değiştir">⇅</button>
+                <label class="field">
+                    <span>Hedef</span>
+                    <select id="convert-to"></select>
+                </label>
+            </div>
+
+            <output class="convert-result" id="convert-result">—</output>
+            <button id="convert-use" class="text-btn" type="button">Sonucu hesap makinesine aktar</button>
+        </section>
+    </div>
 </aside>
 
 </main>
