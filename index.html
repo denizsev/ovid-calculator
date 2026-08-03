@@ -18,6 +18,9 @@
    <source src="images/spacetravel-loop.mp4" type="video/mp4">
 </video>
 
+<!-- Kabul edilen katkılar burada birer yıldıza dönüşür -->
+<div class="star-map" id="star-map" aria-hidden="true"></div>
+
 <header class="app-header">
     <div class="app-title">OVID CALCULATOR</div>
 
@@ -25,6 +28,7 @@
         <button id="angle-toggle" class="chip" type="button" title="Açı birimi (derece / radyan)">DEG</button>
         <button id="step-toggle" class="chip" type="button" title="Warp modu: sonucu adım adım göster" aria-pressed="false">⇢</button>
         <button id="sound-toggle" class="chip" type="button" title="Sesi aç/kapat" aria-pressed="true">🔊</button>
+        <button id="size-toggle" class="chip" type="button" title="Yazı ve tuş boyutu" aria-label="Yazı ve tuş boyutunu değiştir">A</button>
         <button id="mission-open" class="icon-btn" type="button" aria-label="Görev Merkezi'ni aç" aria-expanded="false" title="Görev Merkezi — hata bildir, öneri gönder">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 2l2.9 6.3 6.6.8-4.9 4.6 1.3 6.5L12 17l-5.9 3.2 1.3-6.5L2.5 9.1l6.6-.8z"></path>
@@ -59,11 +63,11 @@
     <!-- SCIENTIFIC PAD (collapsible) -->
     <div class="sci-buttons">
         <div class="sci-row memory-row">
-            <button class="sci" id="mc" title="Belleği temizle">MC</button>
-            <button class="sci" id="mr" title="Belleği getir">MR</button>
-            <button class="sci" id="mplus" title="Belleğe ekle">M+</button>
-            <button class="sci" id="mminus" title="Bellekten çıkar">M-</button>
-            <button class="sci sci-expand" id="sci-toggle" type="button" aria-expanded="false" title="Bilimsel fonksiyonlar">fx</button>
+            <button class="sci" id="mc" title="Belleği temizle" aria-label="Belleği temizle">MC</button>
+            <button class="sci" id="mr" title="Belleği getir" aria-label="Belleği getir">MR</button>
+            <button class="sci" id="mplus" title="Belleğe ekle" aria-label="Belleğe ekle">M+</button>
+            <button class="sci" id="mminus" title="Bellekten çıkar" aria-label="Bellekten çıkar">M-</button>
+            <button class="sci sci-expand" id="sci-toggle" type="button" aria-expanded="false" title="Bilimsel fonksiyonlar" aria-label="Bilimsel fonksiyonları aç">fx</button>
         </div>
 
         <div class="sci-advanced" id="sci-advanced" hidden>
@@ -76,55 +80,55 @@
             </div>
             <div class="sci-row function-row">
                 <button class="sci fn" data-fn="log" data-alt="10^">log</button>
-                <button class="sci" id="power" title="Üs al">x^y</button>
-                <button class="sci" id="inverse" title="Çarpmaya göre ters">1/x</button>
-                <button class="sci" id="factorial" title="Faktöriyel">n!</button>
-                <button class="sci" id="mod" title="Kalan (mod)">mod</button>
+                <button class="sci" id="power" title="Üs al" aria-label="Üs al">x^y</button>
+                <button class="sci" id="inverse" title="Çarpmaya göre ters" aria-label="Çarpmaya göre ters">1/x</button>
+                <button class="sci" id="factorial" title="Faktöriyel" aria-label="Faktöriyel">n!</button>
+                <button class="sci" id="mod" title="Kalan (mod)" aria-label="Kalan, mod">mod</button>
             </div>
             <div class="sci-row function-row">
-                <button class="sci" id="const-pi" title="Pi sayısı">π</button>
-                <button class="sci" id="const-e" title="Euler sayısı">e</button>
-                <button class="sci" id="uncert" title="Hata payı ekle (ör. 5.2±0.1)">±σ</button>
-                <button class="sci" id="undo" title="Geri al (Ctrl+Z)">↶</button>
-                <button class="sci" id="redo" title="İleri al (Ctrl+Y)">↷</button>
+                <button class="sci" id="const-pi" title="Pi sayısı" aria-label="Pi sayısı">π</button>
+                <button class="sci" id="const-e" title="Euler sayısı" aria-label="Euler sayısı">e</button>
+                <button class="sci" id="uncert" title="Hata payı ekle (ör. 5.2±0.1)" aria-label="Hata payı ekle">±σ</button>
+                <button class="sci" id="undo" title="Geri al (Ctrl+Z)" aria-label="Geri al">↶</button>
+                <button class="sci" id="redo" title="İleri al (Ctrl+Y)" aria-label="İleri al">↷</button>
             </div>
         </div>
 
         <div class="sci-row function-row">
-            <button class="sci" id="paren-open">(</button>
-            <button class="sci" id="paren-close">)</button>
-            <button class="sci" id="sqrt">√</button>
-            <button class="sci" id="square">x²</button>
-            <button class="sci" id="percent">%</button>
+            <button class="sci" id="paren-open" aria-label="Parantez aç">(</button>
+            <button class="sci" id="paren-close" aria-label="Parantez kapat">)</button>
+            <button class="sci" id="sqrt" aria-label="Karekök">√</button>
+            <button class="sci" id="square" aria-label="Karesi">x²</button>
+            <button class="sci" id="percent" aria-label="Yüzde">%</button>
         </div>
     </div>
 
     <!-- BUTTONS -->
     <div class="buttons">
 
-        <button id="clear">C</button>
-        <button id="backspace">⌫</button>
-        <button id="plusminus">±</button>
-        <button id="divide" class="operator">÷</button>
+        <button id="clear" aria-label="Tümünü temizle">C</button>
+        <button id="backspace" aria-label="Son karakteri sil">⌫</button>
+        <button id="plusminus" aria-label="İşaret değiştir">±</button>
+        <button id="divide" class="operator" aria-label="Bölme">÷</button>
 
         <button class="num">7</button>
         <button class="num">8</button>
         <button class="num">9</button>
-        <button id="times" class="operator">×</button>
+        <button id="times" class="operator" aria-label="Çarpma">×</button>
 
         <button class="num">4</button>
         <button class="num">5</button>
         <button class="num">6</button>
-        <button id="minus" class="operator">−</button>
+        <button id="minus" class="operator" aria-label="Çıkarma">−</button>
 
         <button class="num">1</button>
         <button class="num">2</button>
         <button class="num">3</button>
-        <button id="plus" class="operator">+</button>
+        <button id="plus" class="operator" aria-label="Toplama">+</button>
 
         <button class="num zero">0</button>
-        <button class="num">.</button>
-        <button id="equals" class="equal">=</button>
+        <button class="num" aria-label="Ondalık ayırıcı">.</button>
+        <button id="equals" class="equal" aria-label="Eşittir, hesapla">=</button>
 
     </div>
 

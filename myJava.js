@@ -5,16 +5,52 @@
    factorial and implicit multiplication, and it keeps input untrusted.
    ===================================================================== */
 
+// =====================================================================
+// STORAGE — Safari private mode and full quotas throw on setItem, which
+// used to take the whole app down. Persistence is a nicety, not a
+// requirement, so failures degrade to in-memory only.
+// =====================================================================
+
+const memoryStore = {};
+
+function storeGet(key) {
+    try {
+        const value = window.localStorage.getItem(key);
+        return value === null ? (memoryStore[key] ?? null) : value;
+    } catch (e) {
+        return memoryStore[key] ?? null;
+    }
+}
+
+function storeSet(key, value) {
+    memoryStore[key] = value;
+    try {
+        window.localStorage.setItem(key, value);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+function storeRemove(key) {
+    delete memoryStore[key];
+    try {
+        window.localStorage.removeItem(key);
+    } catch (e) {
+        /* nothing to clean up */
+    }
+}
+
 // ================= STATE =================
 
 let expression = "0";
 let lastResult = null;
-let angleMode = localStorage.getItem("ovid-angle") || "DEG";
-let soundOn = localStorage.getItem("ovid-sound") !== "off";
-let stepMode = localStorage.getItem("ovid-step") === "on";
+let angleMode = storeGet("ovid-angle") || "DEG";
+let soundOn = storeGet("ovid-sound") !== "off";
+let stepMode = storeGet("ovid-step") === "on";
 let secondMode = false;
-let memory = Number(localStorage.getItem("ovid-memory")) || 0;
-let history = JSON.parse(localStorage.getItem("ovid-history") || "[]");
+let memory = Number(storeGet("ovid-memory")) || 0;
+let history = JSON.parse(storeGet("ovid-history") || "[]");
 
 const undoStack = [];
 const redoStack = [];
@@ -728,6 +764,15 @@ function prettify(expr) {
         .trim();
 }
 
+/* A long result used to be cut off with an ellipsis, so the user could not
+   read their own answer. Shrink the type instead until it fits. */
+function fitResult() {
+    const length = resultLine.textContent.length;
+    resultLine.classList.toggle("shrink-1", length > 12 && length <= 18);
+    resultLine.classList.toggle("shrink-2", length > 18 && length <= 26);
+    resultLine.classList.toggle("shrink-3", length > 26);
+}
+
 function updateDisplay() {
     exprLine.textContent = prettify(expression);
 
@@ -742,6 +787,7 @@ function updateDisplay() {
     }
 
     resultLine.classList.add("preview");
+    fitResult();
 }
 
 function showMessage(message) {
@@ -961,11 +1007,15 @@ $("mod").addEventListener("click", () => appendRaw("mod"));
 
 function appendRaw(text) {
     pushUndo();
-    if (isFresh() && /^[\dπe(]/.test(text)) {
+
+    /* A fresh "0" is a placeholder, so anything that starts a value replaces
+       it — letters included, otherwise typing "sin(30)" yields "0sin(30)". */
+    if (isFresh() && (/^[\dπ(]/.test(text) || IDENT_CHAR.test(text[0]))) {
         expression = text;
     } else {
         expression += text;
     }
+
     updateDisplay();
 }
 
@@ -1114,6 +1164,7 @@ function commitResult(previous, result) {
     exprLine.textContent = previous;
     resultLine.textContent = formatted;
     resultLine.classList.remove("preview");
+    fitResult();
 
     announce(previous + " eşittir " + formatted);
 
@@ -1267,7 +1318,7 @@ $("second").addEventListener("click", () => setSecond(!secondMode));
 
 function setAngleMode(mode) {
     angleMode = mode;
-    localStorage.setItem("ovid-angle", mode);
+    storeSet("ovid-angle", mode);
     $("angle-toggle").textContent = mode;
     angleIndicator.textContent = mode;
     updateDisplay();
@@ -1282,7 +1333,7 @@ setAngleMode(angleMode);
 
 function setSound(on) {
     soundOn = on;
-    localStorage.setItem("ovid-sound", on ? "on" : "off");
+    storeSet("ovid-sound", on ? "on" : "off");
     const btn = $("sound-toggle");
     btn.textContent = on ? "🔊" : "🔇";
     btn.setAttribute("aria-pressed", String(on));
@@ -1295,9 +1346,35 @@ $("sound-toggle").addEventListener("click", () => {
 
 setSound(soundOn);
 
+/* Answers the most common accessibility complaint about calculators:
+   "the buttons and text are too small". Cycles through three sizes. */
+const SIZE_STEPS = ["normal", "buyuk", "cokbuyuk"];
+const SIZE_LABELS = { normal: "A", buyuk: "A+", cokbuyuk: "A++" };
+const SIZE_TOASTS = { normal: "Normal boyut", buyuk: "Büyük boyut", cokbuyuk: "Çok büyük boyut" };
+
+let sizeMode = storeGet("ovid-size") || "normal";
+
+function setSizeMode(mode) {
+    sizeMode = SIZE_STEPS.includes(mode) ? mode : "normal";
+    storeSet("ovid-size", sizeMode);
+
+    document.body.classList.remove("size-buyuk", "size-cokbuyuk");
+    if (sizeMode !== "normal") document.body.classList.add("size-" + sizeMode);
+
+    $("size-toggle").textContent = SIZE_LABELS[sizeMode];
+}
+
+$("size-toggle").addEventListener("click", () => {
+    const next = SIZE_STEPS[(SIZE_STEPS.indexOf(sizeMode) + 1) % SIZE_STEPS.length];
+    setSizeMode(next);
+    showToast(SIZE_TOASTS[sizeMode]);
+});
+
+setSizeMode(sizeMode);
+
 function setStepMode(on) {
     stepMode = on;
-    localStorage.setItem("ovid-step", on ? "on" : "off");
+    storeSet("ovid-step", on ? "on" : "off");
     const btn = $("step-toggle");
     btn.classList.toggle("active", on);
     btn.setAttribute("aria-pressed", String(on));
@@ -1348,7 +1425,7 @@ function currentValue() {
 }
 
 function persistMemory() {
-    localStorage.setItem("ovid-memory", String(memory));
+    storeSet("ovid-memory", String(memory));
     memoryIndicator.classList.toggle("active", memory !== 0);
 }
 
@@ -1387,7 +1464,7 @@ persistMemory();
 // =====================================================================
 
 function persistHistory() {
-    localStorage.setItem("ovid-history", JSON.stringify(history));
+    storeSet("ovid-history", JSON.stringify(history));
 }
 
 function pushHistory(expr, result) {
@@ -1434,7 +1511,14 @@ function renderHistory() {
     });
 }
 
+// destructive and irreversible, so it asks first
 $("history-clear").addEventListener("click", () => {
+    if (!history.length) {
+        showToast("Geçmiş zaten boş");
+        return;
+    }
+    if (!confirm("Tüm hesap geçmişi silinecek. Emin misin?")) return;
+
     history = [];
     persistHistory();
     renderHistory();
@@ -1761,7 +1845,14 @@ document.addEventListener("keydown", (event) => {
 
     if (key === "!") { appendRaw("!"); return; }
     if (key === "%") { applyUnary(v => v / 100); return; }
-    if (key === "p") { appendRaw("π"); return; }
+    if (key === "±") { appendRaw("±"); return; }
+
+    /* Let people type "sin(30)" or "5km" instead of hunting for buttons —
+       the parser already understands both, the keyboard just ignored them. */
+    if (key.length === 1 && IDENT_CHAR.test(key) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        appendRaw(key);
+        return;
+    }
 
     if (key === "Enter" || key === "=") {
         event.preventDefault();

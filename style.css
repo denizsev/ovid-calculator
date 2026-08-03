@@ -53,7 +53,7 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    z-index: -3;
+    z-index: -4;
 }
 
 /* procedural starfield (no external asset needed) — drifts slowly for constant motion */
@@ -75,7 +75,7 @@ body::before {
     background-repeat: repeat;
     background-size: 280px 280px;
     opacity: 0.3;
-    z-index: -2;
+    z-index: -3;
     animation: twinkle 6s ease-in-out infinite alternate, drift 60s linear infinite;
     pointer-events: none;
 }
@@ -89,7 +89,7 @@ body::after {
         rgba(159, 231, 255, 0.1),
         transparent 60%
     );
-    z-index: -1;
+    z-index: -2;
     animation: nebulaPulse 9s ease-in-out infinite alternate;
     pointer-events: none;
 }
@@ -201,6 +201,14 @@ body::after {
     align-items: center;
     padding: clamp(8px, 2vh, 16px) clamp(10px, 4vw, 24px);
     min-height: 0;
+    /* purely a centring wrapper — it must not swallow pointer events, or the
+       contributor stars behind it become unreachable */
+    pointer-events: none;
+}
+
+.calculator,
+.side-panel {
+    pointer-events: auto;
 }
 
 /* CALCULATOR */
@@ -1398,4 +1406,137 @@ button:focus-visible {
 @media (max-width: 520px) {
     .mission-box { max-height: 96dvh; }
     .badge-list { grid-template-columns: 1fr; }
+}
+
+/* =====================================================================
+   YILDIZ HARİTASI — kabul edilen katkılar gökyüzünde birer yıldız
+   ===================================================================== */
+
+.star-map {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+
+.contrib-star {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
+}
+
+.contrib-star .core {
+    width: var(--star-size, 7px);
+    height: var(--star-size, 7px);
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow:
+        0 0 8px rgba(159, 231, 255, 0.9),
+        0 0 20px rgba(159, 231, 255, 0.55),
+        0 0 36px rgba(248, 164, 95, 0.28);
+    animation: starBreathe 4s ease-in-out infinite alternate;
+    animation-delay: var(--star-delay, 0s);
+    flex-shrink: 0;
+}
+
+.contrib-star .label {
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    color: rgba(245, 251, 255, 0.85);
+    white-space: nowrap;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+}
+
+.contrib-star.right { flex-direction: row-reverse; }
+
+.contrib-star:hover .label,
+.contrib-star:focus-visible .label,
+.contrib-star.revealed .label {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.contrib-star:hover .core,
+.contrib-star:focus-visible .core {
+    box-shadow:
+        0 0 14px rgba(255, 255, 255, 1),
+        0 0 30px rgba(159, 231, 255, 0.8),
+        0 0 60px rgba(248, 164, 95, 0.5);
+}
+
+.contrib-star:focus-visible {
+    outline: 2px solid var(--operator-color);
+    outline-offset: 6px;
+    border-radius: 4px;
+}
+
+@keyframes starBreathe {
+    0% { opacity: 0.55; transform: scale(0.85); }
+    100% { opacity: 1; transform: scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .contrib-star .core { animation: none; }
+}
+
+/* dar ekranda hesap makinesi ortayı kaplar; yıldızlar üst şeride çekilir */
+@media (max-width: 860px) {
+    .contrib-star .label { font-size: 0.6rem; }
+}
+
+/* =====================================================================
+   ERİŞİLEBİLİRLİK — "tuşlar ve yazılar çok küçük" şikâyetine cevap
+   ===================================================================== */
+
+body.size-buyuk {
+    --btn-h: clamp(52px, 9.6vh, 78px);
+    --sci-h: clamp(36px, 5.8vh, 48px);
+    --display-h: clamp(104px, 15vh, 172px);
+}
+
+/* only the keypad scales — header controls are chrome, not content, and
+   growing them pushed the header into horizontal overflow on phones */
+body.size-buyuk .buttons button { font-size: clamp(1.05rem, 3.8vw, 1.45rem); }
+
+body.size-buyuk .sci { font-size: clamp(0.8rem, 2.2vw, 1rem); }
+body.size-buyuk #display .top { font-size: clamp(0.98rem, 3vw, 1.3rem); }
+body.size-buyuk #display .bottom { font-size: clamp(1.75rem, 7vw, 2.9rem); }
+body.size-buyuk .app-title { font-size: clamp(0.75rem, 2.5vw, 0.95rem); }
+
+body.size-cokbuyuk {
+    --btn-h: clamp(60px, 11vh, 88px);
+    --sci-h: clamp(42px, 6.6vh, 54px);
+    --display-h: clamp(118px, 17vh, 190px);
+}
+
+body.size-cokbuyuk .buttons button { font-size: clamp(1.2rem, 4.4vw, 1.65rem); }
+
+body.size-cokbuyuk .sci { font-size: clamp(0.92rem, 2.6vw, 1.12rem); }
+body.size-cokbuyuk #display .top { font-size: clamp(1.1rem, 3.4vw, 1.45rem); }
+body.size-cokbuyuk #display .bottom { font-size: clamp(2rem, 8vw, 3.2rem); }
+body.size-cokbuyuk .app-title { font-size: clamp(0.85rem, 2.8vw, 1.05rem); }
+
+/* safety net: never let the header cause a horizontal scrollbar */
+.header-tools { flex-wrap: wrap; justify-content: flex-end; }
+
+/* uzun sonuçlar kırpılmak yerine küçülür */
+#display .bottom.shrink-1 { font-size: clamp(1.2rem, 4.6vw, 1.9rem); }
+#display .bottom.shrink-2 { font-size: clamp(1rem, 3.6vw, 1.5rem); }
+#display .bottom.shrink-3 {
+    font-size: clamp(0.82rem, 2.9vw, 1.18rem);
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    line-height: 1.25;
 }
