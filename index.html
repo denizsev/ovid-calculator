@@ -23,6 +23,7 @@
 
     <div class="header-tools">
         <button id="angle-toggle" class="chip" type="button" title="Açı birimi (derece / radyan)">DEG</button>
+        <button id="step-toggle" class="chip" type="button" title="Warp modu: sonucu adım adım göster" aria-pressed="false">⇢</button>
         <button id="sound-toggle" class="chip" type="button" title="Sesi aç/kapat" aria-pressed="true">🔊</button>
         <button id="panel-toggle" class="icon-btn" type="button" aria-label="Panelleri aç" aria-expanded="false" title="Geçmiş, sabitler ve çevirici">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -78,7 +79,7 @@
             <div class="sci-row function-row">
                 <button class="sci" id="const-pi" title="Pi sayısı">π</button>
                 <button class="sci" id="const-e" title="Euler sayısı">e</button>
-                <button class="sci" id="rand" title="Rastgele sayı">rnd</button>
+                <button class="sci" id="uncert" title="Hata payı ekle (ör. 5.2±0.1)">±σ</button>
                 <button class="sci" id="undo" title="Geri al (Ctrl+Z)">↶</button>
                 <button class="sci" id="redo" title="İleri al (Ctrl+Y)">↷</button>
             </div>
@@ -128,6 +129,7 @@
     <div class="panel-tabs" role="tablist">
         <button class="panel-tab active" data-tab="history" role="tab" aria-selected="true">Geçmiş</button>
         <button class="panel-tab" data-tab="constants" role="tab" aria-selected="false">Sabitler</button>
+        <button class="panel-tab" data-tab="units" role="tab" aria-selected="false">Birimler</button>
         <button class="panel-tab" data-tab="convert" role="tab" aria-selected="false">Çevirici</button>
     </div>
 
@@ -143,6 +145,12 @@
         <section class="panel-pane" id="pane-constants" role="tabpanel">
             <div class="panel-head"><span>Evrensel sabitler</span></div>
             <ul id="constants-list" class="constants-list"></ul>
+        </section>
+
+        <section class="panel-pane" id="pane-units" role="tabpanel">
+            <div class="panel-head"><span>Birimli hesap</span></div>
+            <p class="panel-hint">Sayının ardına birim ekle: <code>5 km + 300 m</code> ya da <code>100 km / 2 h</code>. Sonuç birimi kendisi bulur.</p>
+            <div id="units-groups" class="units-groups"></div>
         </section>
 
         <section class="panel-pane" id="pane-convert" role="tabpanel">

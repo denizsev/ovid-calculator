@@ -11,6 +11,7 @@ let expression = "0";
 let lastResult = null;
 let angleMode = localStorage.getItem("ovid-angle") || "DEG";
 let soundOn = localStorage.getItem("ovid-sound") !== "off";
+let stepMode = localStorage.getItem("ovid-step") === "on";
 let secondMode = false;
 let memory = Number(localStorage.getItem("ovid-memory")) || 0;
 let history = JSON.parse(localStorage.getItem("ovid-history") || "[]");
@@ -31,21 +32,247 @@ const historyList = $("history-list");
 const toastEl = $("toast");
 
 // =====================================================================
-// TOKENIZER
+// QUANTITY — a value that carries its uncertainty and its dimensions.
+// This is what makes "5.2±0.1 * 3" and "5 km + 300 m" possible.
 // =====================================================================
 
+/* Dimension vector: [length, mass, time, data]. Everything is stored in
+   base units (m, kg, s, byte); `unit` only decides how it is displayed. */
+const DIMLESS = [0, 0, 0, 0];
+
+const sameDim = (a, b) => a.every((v, i) => v === b[i]);
+const isDimless = d => d.every(v => v === 0);
+const addDim = (a, b) => a.map((v, i) => v + b[i]);
+const subDim = (a, b) => a.map((v, i) => v - b[i]);
+const scaleDim = (a, n) => a.map(v => v * n);
+
+const BASE_LABELS = ["m", "kg", "s", "B"];
+
+function dimLabel(dim) {
+    const top = [];
+    const bottom = [];
+
+    dim.forEach((exp, i) => {
+        if (exp === 0) return;
+        const label = BASE_LABELS[i];
+        const abs = Math.abs(exp);
+        const term = abs === 1 ? label : label + "^" + abs;
+        (exp > 0 ? top : bottom).push(term);
+    });
+
+    if (!top.length && !bottom.length) return "";
+    const numerator = top.length ? top.join("·") : "1";
+    return bottom.length ? numerator + "/" + bottom.join("·") : numerator;
+}
+
+class Quantity {
+    constructor(value, uncertainty = 0, dim = DIMLESS, unit = null) {
+        this.v = value;
+        this.u = Math.abs(uncertainty);
+        this.dim = dim;
+        this.unit = unit; // { label, factor } — display preference only
+    }
+}
+
+const scalar = n => new Quantity(n);
+
+function requireDimless(q, what) {
+    if (!isDimless(q.dim)) {
+        throw new Error(what + " birimsiz olmalı");
+    }
+}
+
+// ---- unit-aware arithmetic with Gaussian error propagation ----
+
+function qAdd(a, b, sign = 1) {
+    if (!sameDim(a.dim, b.dim)) throw new Error("Birimler uyuşmuyor");
+    return new Quantity(
+        a.v + sign * b.v,
+        Math.hypot(a.u, b.u),
+        a.dim,
+        a.unit || b.unit
+    );
+}
+
+function parsePower(label) {
+    const match = label.match(/^([^^]+)\^(-?\d+)$/);
+    return match
+        ? { base: match[1], exp: Number(match[2]) }
+        : { base: label, exp: 1 };
+}
+
+function powerLabel(base, exp) {
+    if (exp === 0) return null;
+    if (exp === 1) return base;
+    return base + "^" + exp;
+}
+
+/* Keeps m·m readable as m², and lets km/km cancel back to a plain number */
+function combineUnit(a, b, op) {
+    if (!a.unit && !b.unit) return null;
+    if (a.unit && !b.unit) return a.unit;
+    if (!a.unit && b.unit) {
+        return op === "*"
+            ? b.unit
+            : { label: "1/" + b.unit.label, factor: 1 / b.unit.factor };
+    }
+
+    const left = parsePower(a.unit.label);
+    const right = parsePower(b.unit.label);
+    const factor = op === "*"
+        ? a.unit.factor * b.unit.factor
+        : a.unit.factor / b.unit.factor;
+
+    if (left.base === right.base) {
+        const exp = op === "*" ? left.exp + right.exp : left.exp - right.exp;
+        const label = powerLabel(left.base, exp);
+        return label ? { label, factor } : null;
+    }
+
+    const label = op === "*"
+        ? a.unit.label + "·" + b.unit.label
+        : a.unit.label + "/" + b.unit.label;
+
+    return { label, factor };
+}
+
+function qMul(a, b) {
+    // exact form: avoids dividing by zero-valued operands
+    return new Quantity(
+        a.v * b.v,
+        Math.hypot(b.v * a.u, a.v * b.u),
+        addDim(a.dim, b.dim),
+        combineUnit(a, b, "*")
+    );
+}
+
+function qDiv(a, b) {
+    return new Quantity(
+        a.v / b.v,
+        Math.hypot(a.u / b.v, (a.v * b.u) / (b.v * b.v)),
+        subDim(a.dim, b.dim),
+        combineUnit(a, b, "/")
+    );
+}
+
+function qPow(a, b) {
+    requireDimless(b, "Üs");
+
+    if (!isDimless(a.dim) && !Number.isInteger(b.v)) {
+        throw new Error("Birimli değerin üssü tam sayı olmalı");
+    }
+
+    const value = Math.pow(a.v, b.v);
+    const dBase = b.v * Math.pow(a.v, b.v - 1) * a.u;
+    const dExp = a.v > 0 ? value * Math.log(a.v) * b.u : 0;
+
+    const unit = a.unit && Number.isInteger(b.v)
+        ? { label: b.v === 1 ? a.unit.label : a.unit.label + "^" + b.v, factor: Math.pow(a.unit.factor, b.v) }
+        : null;
+
+    return new Quantity(value, Math.hypot(dBase, dExp), scaleDim(a.dim, b.v), unit);
+}
+
+function qMod(a, b) {
+    if (!sameDim(a.dim, b.dim)) throw new Error("Birimler uyuşmuyor");
+    return new Quantity(a.v % b.v, a.u, a.dim, a.unit);
+}
+
+function qNeg(a) {
+    return new Quantity(-a.v, a.u, a.dim, a.unit);
+}
+
+function factorial(n) {
+    if (n < 0 || !Number.isInteger(n)) throw new Error("Faktöriyel yalnızca pozitif tam sayılar için");
+    if (n > 170) return Infinity;
+    let acc = 1;
+    for (let i = 2; i <= n; i++) acc *= i;
+    return acc;
+}
+
+function qFactorial(a) {
+    requireDimless(a, "Faktöriyel girdisi");
+    return scalar(factorial(a.v));
+}
+
+// =====================================================================
+// FUNCTIONS — each carries its derivative so uncertainty can propagate
+// =====================================================================
+
+function radPerUnit() {
+    return angleMode === "DEG" ? Math.PI / 180 : 1;
+}
+
 const FUNCTIONS = {
-    sin: x => Math.sin(toRadians(x)),
-    cos: x => Math.cos(toRadians(x)),
-    tan: x => Math.tan(toRadians(x)),
-    asin: x => fromRadians(Math.asin(x)),
-    acos: x => fromRadians(Math.acos(x)),
-    atan: x => fromRadians(Math.atan(x)),
-    ln: Math.log,
-    log: Math.log10,
-    exp: Math.exp,
-    sqrt: Math.sqrt,
-    abs: Math.abs
+    sin: { f: x => Math.sin(toRadians(x)), df: x => Math.cos(toRadians(x)) * radPerUnit() },
+    cos: { f: x => Math.cos(toRadians(x)), df: x => -Math.sin(toRadians(x)) * radPerUnit() },
+    tan: { f: x => Math.tan(toRadians(x)), df: x => radPerUnit() / Math.pow(Math.cos(toRadians(x)), 2) },
+    asin: { f: x => fromRadians(Math.asin(x)), df: x => 1 / (Math.sqrt(1 - x * x) * radPerUnit()) },
+    acos: { f: x => fromRadians(Math.acos(x)), df: x => -1 / (Math.sqrt(1 - x * x) * radPerUnit()) },
+    atan: { f: x => fromRadians(Math.atan(x)), df: x => 1 / ((1 + x * x) * radPerUnit()) },
+    ln: { f: Math.log, df: x => 1 / x },
+    log: { f: Math.log10, df: x => 1 / (x * Math.LN10) },
+    exp: { f: Math.exp, df: Math.exp },
+    sqrt: { f: Math.sqrt, df: x => 1 / (2 * Math.sqrt(x)) },
+    abs: { f: Math.abs, df: x => Math.sign(x) }
+};
+
+function qApplyFunction(name, a) {
+    const fn = FUNCTIONS[name];
+
+    // sqrt is the one function that is meaningful on a dimensioned value
+    if (name === "sqrt" && !isDimless(a.dim)) {
+        if (a.dim.some(d => d % 2 !== 0)) throw new Error("Bu birimin karekökü alınamaz");
+        return new Quantity(
+            Math.sqrt(a.v),
+            a.u / (2 * Math.sqrt(a.v)),
+            scaleDim(a.dim, 0.5)
+        );
+    }
+
+    requireDimless(a, name + " girdisi");
+    return new Quantity(fn.f(a.v), Math.abs(fn.df(a.v)) * a.u);
+}
+
+// =====================================================================
+// UNITS
+// =====================================================================
+
+const UNITS = {
+    // length
+    m: { f: 1, d: [1, 0, 0, 0] },
+    km: { f: 1000, d: [1, 0, 0, 0] },
+    cm: { f: 0.01, d: [1, 0, 0, 0] },
+    mm: { f: 0.001, d: [1, 0, 0, 0] },
+    mi: { f: 1609.344, d: [1, 0, 0, 0] },
+    ft: { f: 0.3048, d: [1, 0, 0, 0] },
+    AU: { f: 1.495978707e11, d: [1, 0, 0, 0] },
+    ly: { f: 9.4607304725808e15, d: [1, 0, 0, 0] },
+    pc: { f: 3.0856775814913673e16, d: [1, 0, 0, 0] },
+
+    // mass
+    kg: { f: 1, d: [0, 1, 0, 0] },
+    g: { f: 0.001, d: [0, 1, 0, 0] },
+    mg: { f: 1e-6, d: [0, 1, 0, 0] },
+    ton: { f: 1000, d: [0, 1, 0, 0] },
+    lb: { f: 0.45359237, d: [0, 1, 0, 0] },
+
+    // time
+    s: { f: 1, d: [0, 0, 1, 0] },
+    ms: { f: 0.001, d: [0, 0, 1, 0] },
+    dk: { f: 60, d: [0, 0, 1, 0] },
+    min: { f: 60, d: [0, 0, 1, 0] },
+    sa: { f: 3600, d: [0, 0, 1, 0] },
+    h: { f: 3600, d: [0, 0, 1, 0] },
+    gün: { f: 86400, d: [0, 0, 1, 0] },
+    yıl: { f: 31557600, d: [0, 0, 1, 0] },
+
+    // data
+    B: { f: 1, d: [0, 0, 0, 1] },
+    KB: { f: 1024, d: [0, 0, 0, 1] },
+    MB: { f: 1048576, d: [0, 0, 0, 1] },
+    GB: { f: 1073741824, d: [0, 0, 0, 1] },
+    TB: { f: 1099511627776, d: [0, 0, 0, 1] }
 };
 
 const CONSTANTS = {
@@ -74,41 +301,72 @@ function fromRadians(x) {
     return angleMode === "DEG" ? (x * 180) / Math.PI : x;
 }
 
+const IDENT_CHAR = /[a-zA-ZπüığöçşİÜĞÖÇŞ]/;
+
 function tokenize(input) {
     const tokens = [];
     let i = 0;
+
+    const skipSpace = () => { while (i < input.length && input[i] === " ") i++; };
+
+    const readNumber = () => {
+        let num = "";
+        while (i < input.length && /[0-9.]/.test(input[i])) num += input[i++];
+        if ((num.match(/\./g) || []).length > 1) throw new Error("Geçersiz sayı");
+        return parseFloat(num);
+    };
+
+    const readIdent = () => {
+        let name = "";
+        while (i < input.length && IDENT_CHAR.test(input[i])) name += input[i++];
+        return name;
+    };
 
     while (i < input.length) {
         const ch = input[i];
 
         if (ch === " ") { i++; continue; }
 
-        // number (supports leading decimal point)
+        // number, optionally "±uncertainty" and/or a unit suffix
         if (/[0-9.]/.test(ch)) {
-            let num = "";
-            while (i < input.length && /[0-9.]/.test(input[i])) {
-                num += input[i++];
+            const value = readNumber();
+            let uncert = 0;
+            let unit = null;
+
+            let save = i;
+            skipSpace();
+            if (input[i] === "±") {
+                i++;
+                skipSpace();
+                if (!/[0-9.]/.test(input[i] || "")) throw new Error("± sonrası sayı bekleniyor");
+                uncert = readNumber();
+            } else {
+                i = save;
             }
-            if ((num.match(/\./g) || []).length > 1) {
-                throw new Error("Geçersiz sayı");
+
+            save = i;
+            skipSpace();
+            const name = readIdent();
+            if (name && UNITS[name]) {
+                unit = name;
+            } else {
+                i = save;
             }
-            tokens.push({ type: "number", value: parseFloat(num) });
+
+            tokens.push({ type: "number", value, uncert, unit });
             continue;
         }
 
         // named tokens: functions, mod, constants
-        if (/[a-zπ]/i.test(ch)) {
-            let name = "";
-            while (i < input.length && /[a-zπ0-9]/i.test(input[i])) {
-                name += input[i++];
-            }
+        if (IDENT_CHAR.test(ch)) {
+            const name = readIdent();
 
             if (FUNCTIONS[name]) {
                 tokens.push({ type: "function", value: name });
             } else if (name === "mod") {
                 tokens.push({ type: "operator", value: "mod" });
             } else if (CONSTANTS[name] !== undefined) {
-                tokens.push({ type: "number", value: CONSTANTS[name] });
+                tokens.push({ type: "number", value: CONSTANTS[name], uncert: 0, unit: null });
             } else {
                 throw new Error("Bilinmeyen ifade: " + name);
             }
@@ -263,53 +521,49 @@ function toRPN(tokens) {
     return output;
 }
 
-function factorial(n) {
-    if (n < 0 || !Number.isInteger(n)) throw new Error("Faktöriyel yalnızca pozitif tam sayılar için");
-    if (n > 170) return Infinity;
-    let acc = 1;
-    for (let i = 2; i <= n; i++) acc *= i;
-    return acc;
+// =====================================================================
+// AST — built from the RPN so the expression can be reduced one visible
+// step at a time (warp mode) instead of collapsing to a single answer.
+// =====================================================================
+
+function quantityFromToken(token) {
+    if (!token.unit) return new Quantity(token.value, token.uncert || 0);
+
+    const unit = UNITS[token.unit];
+    return new Quantity(
+        token.value * unit.f,
+        (token.uncert || 0) * unit.f,
+        unit.d,
+        { label: token.unit, factor: unit.f }
+    );
 }
 
-function evalRPN(rpn) {
+function buildAST(rpn) {
     const stack = [];
+    const pop = () => {
+        if (!stack.length) throw new Error("Eksik ifade");
+        return stack.pop();
+    };
 
     for (const token of rpn) {
-        if (token.type === "number") {
-            stack.push(token.value);
-            continue;
-        }
-
-        if (token.type === "unary") {
-            if (!stack.length) throw new Error("Eksik ifade");
-            stack.push(-stack.pop());
-            continue;
-        }
-
-        if (token.type === "postfix") {
-            if (!stack.length) throw new Error("Eksik ifade");
-            stack.push(factorial(stack.pop()));
-            continue;
-        }
-
-        if (token.type === "function") {
-            if (!stack.length) throw new Error("Eksik ifade");
-            stack.push(FUNCTIONS[token.value](stack.pop()));
-            continue;
-        }
-
-        if (token.type === "operator") {
-            if (stack.length < 2) throw new Error("Eksik ifade");
-            const b = stack.pop();
-            const a = stack.pop();
-
-            switch (token.value) {
-                case "+": stack.push(a + b); break;
-                case "-": stack.push(a - b); break;
-                case "*": stack.push(a * b); break;
-                case "/": stack.push(a / b); break;
-                case "mod": stack.push(a % b); break;
-                case "^": stack.push(Math.pow(a, b)); break;
+        switch (token.type) {
+            case "number":
+                stack.push({ type: "num", q: quantityFromToken(token) });
+                break;
+            case "unary":
+                stack.push({ type: "neg", arg: pop() });
+                break;
+            case "postfix":
+                stack.push({ type: "fact", arg: pop() });
+                break;
+            case "function":
+                stack.push({ type: "fn", name: token.value, arg: pop() });
+                break;
+            case "operator": {
+                const right = pop();
+                const left = pop();
+                stack.push({ type: "op", op: token.value, left, right });
+                break;
             }
         }
     }
@@ -318,13 +572,99 @@ function evalRPN(rpn) {
     return stack[0];
 }
 
-function evaluate(input) {
+function evalNode(node) {
+    switch (node.type) {
+        case "num": return node.q;
+        case "neg": return qNeg(evalNode(node.arg));
+        case "fact": return qFactorial(evalNode(node.arg));
+        case "fn": return qApplyFunction(node.name, evalNode(node.arg));
+        case "op": {
+            const a = evalNode(node.left);
+            const b = evalNode(node.right);
+            switch (node.op) {
+                case "+": return qAdd(a, b, 1);
+                case "-": return qAdd(a, b, -1);
+                case "*": return qMul(a, b);
+                case "/": return qDiv(a, b);
+                case "mod": return qMod(a, b);
+                case "^": return qPow(a, b);
+            }
+        }
+    }
+    throw new Error("Eksik ifade");
+}
+
+/* Reduce the single next operation, leftmost-innermost. Because the AST
+   already encodes precedence, post-order traversal yields exactly the
+   order a human would evaluate in. */
+function reduceOnce(node) {
+    if (node.type === "num") return { node, changed: false };
+
+    if (node.type === "op") {
+        const left = reduceOnce(node.left);
+        if (left.changed) return { node: { ...node, left: left.node }, changed: true };
+
+        const right = reduceOnce(node.right);
+        if (right.changed) return { node: { ...node, right: right.node }, changed: true };
+
+        return { node: { type: "num", q: evalNode(node) }, changed: true };
+    }
+
+    const inner = reduceOnce(node.arg);
+    if (inner.changed) return { node: { ...node, arg: inner.node }, changed: true };
+
+    return { node: { type: "num", q: evalNode(node) }, changed: true };
+}
+
+const OP_SYMBOLS = { "+": "+", "-": "−", "*": "×", "/": "÷", "^": "^", "mod": "mod" };
+
+function renderAST(node, parentPrec = 0) {
+    switch (node.type) {
+        case "num": return formatQuantity(node.q);
+        case "neg": return "−" + renderAST(node.arg, UNARY_PREC);
+        case "fact": return renderAST(node.arg, 5) + "!";
+        case "fn": return node.name + "(" + renderAST(node.arg, 0) + ")";
+        case "op": {
+            const prec = OPERATORS[node.op].prec;
+            const rightAssoc = OPERATORS[node.op].assoc === "right";
+
+            const text = renderAST(node.left, rightAssoc ? prec + 1 : prec) +
+                " " + OP_SYMBOLS[node.op] + " " +
+                renderAST(node.right, rightAssoc ? prec : prec + 1);
+
+            return prec < parentPrec ? "(" + text + ")" : text;
+        }
+    }
+    return "";
+}
+
+function parse(input) {
     // auto-close parentheses so the live preview works while typing
     const open = (input.match(/\(/g) || []).length;
     const close = (input.match(/\)/g) || []).length;
     const balanced = input + ")".repeat(Math.max(0, open - close));
 
-    return evalRPN(toRPN(normalize(tokenize(balanced))));
+    return buildAST(toRPN(normalize(tokenize(balanced))));
+}
+
+function evaluate(input) {
+    return evalNode(parse(input));
+}
+
+/* The visible steps of an evaluation, e.g. 2+3×4 -> 2+12 -> 14 */
+function evaluationSteps(input) {
+    let node = parse(input);
+    const steps = [renderAST(node)];
+
+    for (let guard = 0; guard < 60; guard++) {
+        const next = reduceOnce(node);
+        if (!next.changed) break;
+        node = next.node;
+        steps.push(renderAST(node));
+        if (node.type === "num") break;
+    }
+
+    return steps;
 }
 
 // =====================================================================
@@ -349,6 +689,34 @@ function formatNumber(num) {
     return dec ? grouped + "." + dec : grouped;
 }
 
+/* Uncertainty is only meaningful to a couple of significant digits, and the
+   value should not be quoted more precisely than its own error bar. */
+function formatUncertain(value, uncertainty) {
+    if (!(uncertainty > 0)) return formatNumber(value);
+
+    const magnitude = Math.floor(Math.log10(uncertainty));
+    const decimals = Math.min(12, Math.max(0, -magnitude + 1));
+
+    return formatNumber(Number(value.toFixed(decimals))) +
+        " ± " + formatNumber(Number(uncertainty.toFixed(decimals)));
+}
+
+function formatQuantity(q) {
+    let value = q.v;
+    let uncertainty = q.u;
+    let label = "";
+
+    if (q.unit) {
+        value /= q.unit.factor;
+        uncertainty /= q.unit.factor;
+        label = " " + q.unit.label;
+    } else if (!isDimless(q.dim)) {
+        label = " " + dimLabel(q.dim);
+    }
+
+    return formatUncertain(value, uncertainty) + label;
+}
+
 function prettify(expr) {
     return expr
         .replace(/\*/g, " × ")
@@ -366,15 +734,14 @@ function updateDisplay() {
     // live preview — the answer appears before you press "="
     try {
         const value = evaluate(expression);
-        if (typeof value === "number" && !Number.isNaN(value)) {
-            resultLine.textContent = formatNumber(value);
-            resultLine.classList.add("preview");
-        } else {
-            resultLine.classList.add("preview");
+        if (value && !Number.isNaN(value.v)) {
+            resultLine.textContent = formatQuantity(value);
         }
     } catch (e) {
-        resultLine.classList.add("preview");
+        /* incomplete expression: keep the last preview rather than flicker */
     }
+
+    resultLine.classList.add("preview");
 }
 
 function showMessage(message) {
@@ -535,8 +902,10 @@ function isFresh() {
     return expression === "0";
 }
 
+/* The number currently being typed. "±" starts a new one (the error bar),
+   so it counts as a boundary — otherwise 5.2±0.1 rejects its second dot. */
 function trailingSegment() {
-    const match = expression.match(/[^+\-*/(^]*$/);
+    const match = expression.match(/[^+\-*/(^±]*$/);
     return match ? match[0] : "";
 }
 
@@ -653,7 +1022,15 @@ document.querySelectorAll(".fn").forEach(btn => {
 $("const-pi").addEventListener("click", () => appendRaw("π"));
 $("const-e").addEventListener("click", () => appendRaw("e"));
 $("factorial").addEventListener("click", () => appendRaw("!"));
-$("rand").addEventListener("click", () => appendRaw(Math.random().toFixed(6)));
+
+// "±" only makes sense straight after a number, and only once per number
+$("uncert").addEventListener("click", () => {
+    if (!/[\d.]$/.test(expression) || /±[\d.]*$/.test(expression)) {
+        showToast("Önce bir sayı girin");
+        return;
+    }
+    appendRaw("±");
+});
 
 $("undo").addEventListener("click", undo);
 $("redo").addEventListener("click", redo);
@@ -704,8 +1081,85 @@ $("inverse").addEventListener("click", () => applyUnary(v => 1 / v));
 // CALCULATE
 // =====================================================================
 
+/* Turn a result back into something the parser can read, so the next
+   calculation can continue from it — including its unit and error bar. */
+function toExpressionString(q) {
+    let value = q.v;
+    let uncertainty = q.u;
+    let suffix = "";
+
+    if (q.unit && UNITS[q.unit.label]) {
+        value /= q.unit.factor;
+        uncertainty /= q.unit.factor;
+        suffix = q.unit.label;
+    }
+
+    let text = String(Number(value.toPrecision(12)));
+    if (uncertainty > 0) text += "±" + Number(uncertainty.toPrecision(6));
+    if (suffix) text += suffix;
+
+    return text;
+}
+
+let stepTimers = [];
+
+function clearStepAnimation() {
+    stepTimers.forEach(clearTimeout);
+    stepTimers = [];
+}
+
+function commitResult(previous, result) {
+    const formatted = formatQuantity(result);
+
+    exprLine.textContent = previous;
+    resultLine.textContent = formatted;
+    resultLine.classList.remove("preview");
+
+    announce(previous + " eşittir " + formatted);
+
+    lastResult = result.v;
+    pushUndo();
+    expression = toExpressionString(result);
+
+    pushHistory(previous, formatted);
+}
+
+// warp mode: walk the expression through each evaluation step before landing
+function animateSteps(previous, result) {
+    let steps;
+    try {
+        steps = evaluationSteps(expression);
+    } catch (e) {
+        commitResult(previous, result);
+        return;
+    }
+
+    if (steps.length < 3) {
+        commitResult(previous, result);
+        return;
+    }
+
+    clearStepAnimation();
+    exprLine.classList.add("warping");
+
+    steps.slice(1, -1).forEach((step, index) => {
+        stepTimers.push(setTimeout(() => {
+            exprLine.textContent = step;
+            playTick(760 + index * 60);
+        }, 380 * (index + 1)));
+    });
+
+    stepTimers.push(setTimeout(() => {
+        exprLine.classList.remove("warping");
+        commitResult(previous, result);
+    }, 380 * (steps.length - 1)));
+}
+
 function calculate() {
     if (isFresh()) return;
+
+    clearStepAnimation();
+    exprLine.classList.remove("warping");
 
     let result;
     try {
@@ -717,14 +1171,14 @@ function calculate() {
         return;
     }
 
-    if (typeof result !== "number" || Number.isNaN(result)) {
+    if (!result || Number.isNaN(result.v)) {
         showMessage("Tanımsız sonuç");
         playErrorSound();
         expression = "0";
         return;
     }
 
-    if (!isFinite(result)) {
+    if (!isFinite(result.v)) {
         showMessage("Sıfıra bölünemez");
         playErrorSound();
         expression = "0";
@@ -732,19 +1186,12 @@ function calculate() {
     }
 
     const previous = prettify(expression);
-    const formatted = formatNumber(result);
 
-    exprLine.textContent = previous;
-    resultLine.textContent = formatted;
-    resultLine.classList.remove("preview");
-
-    announce(previous + " eşittir " + formatted);
-
-    lastResult = Number(result.toPrecision(12));
-    pushUndo();
-    expression = String(lastResult);
-
-    pushHistory(previous, formatted);
+    if (stepMode) {
+        animateSteps(previous, result);
+    } else {
+        commitResult(previous, result);
+    }
 }
 
 // =====================================================================
@@ -848,6 +1295,21 @@ $("sound-toggle").addEventListener("click", () => {
 
 setSound(soundOn);
 
+function setStepMode(on) {
+    stepMode = on;
+    localStorage.setItem("ovid-step", on ? "on" : "off");
+    const btn = $("step-toggle");
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-pressed", String(on));
+}
+
+$("step-toggle").addEventListener("click", () => {
+    setStepMode(!stepMode);
+    showToast(stepMode ? "Warp modu açık — adım adım" : "Warp modu kapalı");
+});
+
+setStepMode(stepMode);
+
 $("sci-toggle").addEventListener("click", () => {
     const pad = $("sci-advanced");
     const open = pad.hasAttribute("hidden");
@@ -879,7 +1341,7 @@ function showToast(message) {
 function currentValue() {
     try {
         const value = evaluate(expression);
-        return typeof value === "number" && isFinite(value) ? value : null;
+        return value && isFinite(value.v) ? value.v : null;
     } catch (e) {
         return null;
     }
@@ -1039,10 +1501,61 @@ function renderConstants() {
 renderConstants();
 
 // =====================================================================
+// UNIT PALETTE — click a unit to append it to the current number
+// =====================================================================
+
+const UNIT_GROUPS = [
+    { title: "Uzunluk", units: ["mm", "cm", "m", "km", "ft", "mi", "AU", "ly", "pc"] },
+    { title: "Kütle", units: ["mg", "g", "kg", "ton", "lb"] },
+    { title: "Zaman", units: ["ms", "s", "dk", "sa", "gün", "yıl"] },
+    { title: "Veri", units: ["B", "KB", "MB", "GB", "TB"] }
+];
+
+function renderUnitPalette() {
+    const container = $("units-groups");
+    container.textContent = "";
+
+    UNIT_GROUPS.forEach(group => {
+        const wrap = document.createElement("div");
+        wrap.className = "unit-group";
+
+        const title = document.createElement("div");
+        title.className = "unit-group-title";
+        title.textContent = group.title;
+
+        const row = document.createElement("div");
+        row.className = "unit-chips";
+
+        group.units.forEach(unit => {
+            const chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "unit-chip";
+            chip.textContent = unit;
+
+            chip.addEventListener("click", () => {
+                if (!/[\d.]$/.test(expression)) {
+                    showToast("Önce bir sayı girin");
+                    return;
+                }
+                appendRaw(unit);
+                playTick(1040);
+            });
+
+            row.appendChild(chip);
+        });
+
+        wrap.append(title, row);
+        container.appendChild(wrap);
+    });
+}
+
+renderUnitPalette();
+
+// =====================================================================
 // UNIT CONVERTER
 // =====================================================================
 
-const UNITS = {
+const CONVERTER_UNITS = {
     "Uzunluk": {
         mm: 0.001, cm: 0.01, m: 1, km: 1000,
         inç: 0.0254, ft: 0.3048, mil: 1609.344,
@@ -1095,7 +1608,7 @@ const toSelect = $("convert-to");
 const convertInput = $("convert-input");
 const convertResult = $("convert-result");
 
-Object.keys(UNITS).forEach(cat => {
+Object.keys(CONVERTER_UNITS).forEach(cat => {
     const option = document.createElement("option");
     option.value = cat;
     option.textContent = cat;
@@ -1103,7 +1616,7 @@ Object.keys(UNITS).forEach(cat => {
 });
 
 function unitsFor(category) {
-    return category === "Sıcaklık" ? TEMP_UNITS : Object.keys(UNITS[category]);
+    return category === "Sıcaklık" ? TEMP_UNITS : Object.keys(CONVERTER_UNITS[category]);
 }
 
 function populateUnits() {
@@ -1134,7 +1647,7 @@ function convertValue() {
         return fromCelsius(toCelsius(value, fromSelect.value), toSelect.value);
     }
 
-    const table = UNITS[category];
+    const table = CONVERTER_UNITS[category];
     return (value * table[fromSelect.value]) / table[toSelect.value];
 }
 

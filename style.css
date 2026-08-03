@@ -543,9 +543,75 @@ button:focus-visible {
     pointer-events: auto;
 }
 
+.chip.active {
+    background: rgba(248, 164, 95, 0.18);
+    border-color: rgba(248, 164, 95, 0.5);
+    color: var(--accent-color);
+}
+
+/* the expression line while warp mode walks through the steps */
+#display .top.warping {
+    color: var(--operator-color);
+    text-shadow: 0 0 14px rgba(159, 231, 255, 0.5);
+}
+
+.panel-hint {
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: var(--muted-color);
+}
+
+.panel-hint code {
+    font-family: inherit;
+    color: var(--operator-color);
+    background: rgba(159, 231, 255, 0.1);
+    padding: 1px 5px;
+    border-radius: 5px;
+}
+
+.units-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+}
+
+.unit-group-title {
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted-color);
+    margin-bottom: 7px;
+}
+
+.unit-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.unit-chip {
+    height: 30px;
+    padding: 0 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(159, 231, 255, 0.18);
+    background: var(--sci-bg);
+    color: var(--operator-color);
+    font-family: inherit;
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.unit-chip:hover {
+    background: var(--sci-hover);
+    transform: translateY(-1px);
+}
+
 .panel-tabs {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 6px;
     padding: 4px;
     border-radius: 14px;
@@ -555,12 +621,13 @@ button:focus-visible {
 
 .panel-tab {
     height: 34px;
+    padding: 0 2px;
     border: none;
     border-radius: 10px;
     background: transparent;
     color: var(--muted-color);
     font-family: inherit;
-    font-size: 0.72rem;
+    font-size: 0.66rem;
     font-weight: 600;
     letter-spacing: 0.06em;
     cursor: pointer;
