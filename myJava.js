@@ -2464,9 +2464,8 @@ document.addEventListener("keydown", (event) => {
     // don't hijack typing inside the converter or Mission Control inputs
     if (event.target.matches("input, select, textarea")) return;
 
-    // while Mission Control is open it owns the keyboard, Escape included
-    const mission = document.getElementById("mission-modal");
-    if (mission && mission.classList.contains("open")) return;
+    // an open dialog owns the keyboard, Escape included
+    if (document.querySelector(".mission-modal.open")) return;
 
     const key = event.key;
 
