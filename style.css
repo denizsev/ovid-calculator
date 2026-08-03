@@ -16,21 +16,32 @@
     --text-color: #f5fbff;
     --muted-color: rgba(245, 251, 255, 0.55);
     --border-glow: rgba(159, 231, 255, 0.22);
+
+    /* fluid sizing tokens: scale with viewport instead of hard breakpoint cliffs */
+    --gap-sm: clamp(6px, 1.6vh, 10px);
+    --gap-md: clamp(8px, 2.2vw, 16px);
+    --btn-h: clamp(46px, 9.5vh, 72px);
+    --sci-h: clamp(32px, 5.6vh, 46px);
+    --display-h: clamp(112px, 22vh, 226px);
 }
 
-body, html {
-    font-family: 'Orbitron', 'Segoe UI', sans-serif;
+html {
     height: 100%;
-    color: var(--text-color);
+    color-scheme: dark;
 }
 
 body {
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     position: relative;
+    isolation: isolate;
     background-color: #05070d;
+    font-family: 'Orbitron', 'Segoe UI', sans-serif;
+    color: var(--text-color);
 }
 
 /* ================= BACKGROUND ================= */
@@ -38,19 +49,20 @@ body {
 /* VIDEO FULL BACKGROUND */
 #bg-video {
     position: fixed;
-    top: 0;
-    left: 0;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    z-index: -2;
+    z-index: -3;
 }
 
-/* procedural starfield (no external asset needed) */
+/* procedural starfield (no external asset needed) — drifts slowly for constant motion */
 body::before {
     content: "";
     position: fixed;
-    inset: 0;
+    inset: -280px 0 0 -280px;
+    width: calc(100% + 280px);
+    height: calc(100% + 280px);
     background-image:
         radial-gradient(1.5px 1.5px at 12% 22%, rgba(255, 255, 255, 0.9), transparent),
         radial-gradient(1px 1px at 28% 68%, rgba(255, 255, 255, 0.7), transparent),
@@ -63,8 +75,9 @@ body::before {
     background-repeat: repeat;
     background-size: 280px 280px;
     opacity: 0.3;
-    z-index: -1;
-    animation: twinkle 6s ease-in-out infinite alternate;
+    z-index: -2;
+    animation: twinkle 6s ease-in-out infinite alternate, drift 60s linear infinite;
+    pointer-events: none;
 }
 
 body::after {
@@ -72,16 +85,35 @@ body::after {
     position: fixed;
     inset: 0;
     background: radial-gradient(
-        circle at center,
-        rgba(159, 231, 255, 0.08),
+        circle at 50% 45%,
+        rgba(159, 231, 255, 0.1),
         transparent 60%
     );
     z-index: -1;
+    animation: nebulaPulse 9s ease-in-out infinite alternate;
+    pointer-events: none;
 }
 
 @keyframes twinkle {
     0% { opacity: 0.18; }
     100% { opacity: 0.42; }
+}
+
+@keyframes drift {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(-280px, -280px); }
+}
+
+@keyframes nebulaPulse {
+    0% { opacity: 0.55; }
+    100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body::before,
+    body::after {
+        animation: none;
+    }
 }
 
 /* ================= HEADER ================= */
@@ -90,20 +122,20 @@ body::after {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: 25px 25px 12px;
+    margin: clamp(14px, 3.5vh, 25px) clamp(14px, 4vw, 25px) clamp(6px, 1.5vh, 12px);
     position: relative;
-    z-index: 55;
+    z-index: 65;
 }
 
 .app-title {
-    font-size: 0.85rem;
-    letter-spacing: 0.3em;
+    font-size: clamp(0.65rem, 2.2vw, 0.85rem);
+    letter-spacing: 0.28em;
     color: rgba(255, 255, 255, 0.6);
 }
 
 .icon-btn {
-    width: 40px;
-    height: 40px;
+    width: clamp(32px, 7vw, 40px);
+    height: clamp(32px, 7vw, 40px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -128,19 +160,19 @@ body::after {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 16px 24px 8px;
+    padding: clamp(8px, 2vh, 16px) clamp(10px, 4vw, 24px);
     min-height: 0;
 }
 
 /* CALCULATOR */
 .calculator {
     width: min(425px, 100%);
-    min-height: min(880px, calc(100vh - 110px));
-    padding: 26px 26px 18px;
+    padding: clamp(12px, 3vw, 26px) clamp(12px, 3vw, 26px) clamp(10px, 2.4vw, 18px);
     background: transparent;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    gap: 0;
     position: relative;
     transform: translateY(0);
     transition: transform 0.3s ease;
@@ -153,10 +185,9 @@ body::after {
 /* ================= DISPLAY ================= */
 
 #display {
-    height: 226px;
-    font-size: 2rem;
+    height: var(--display-h);
     text-align: right;
-    padding: 22px 18px;
+    padding: clamp(14px, 2.6vh, 22px) clamp(12px, 2.4vw, 18px);
     position: relative;
 
     display: flex;
@@ -165,8 +196,8 @@ body::after {
     justify-content: space-between;
     background: var(--display-bg);
     border: 1px solid rgba(159, 231, 255, 0.1);
-    border-radius: 26px;
-    margin-bottom: 18px;
+    border-radius: clamp(18px, 3vw, 26px);
+    margin-bottom: clamp(10px, 2vh, 18px);
     color: var(--text-color);
     overflow: hidden;
     backdrop-filter: blur(12px);
@@ -211,7 +242,7 @@ body::after {
 }
 
 #display .top {
-    font-size: 1rem;
+    font-size: clamp(0.7rem, 2vw, 1rem);
     font-weight: 500;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -221,7 +252,7 @@ body::after {
 }
 
 #display .bottom {
-    font-size: 2.5rem;
+    font-size: clamp(1.5rem, 6vw, 2.5rem);
     font-weight: 700;
     letter-spacing: 0.04em;
     color: var(--text-color);
@@ -235,7 +266,7 @@ body::after {
     width: 100%;
     max-width: 210px;
     height: 1px;
-    margin: 0 auto 22px;
+    margin: 0 auto clamp(12px, 2.4vh, 22px);
     background: linear-gradient(
         90deg,
         rgba(255, 255, 255, 0),
@@ -252,13 +283,13 @@ body::after {
 .sci-buttons {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-bottom: 18px;
+    gap: var(--gap-sm);
+    margin-bottom: clamp(10px, 2.2vh, 18px);
 }
 
 .sci-row {
     display: grid;
-    gap: 10px;
+    gap: var(--gap-sm);
 }
 
 .memory-row {
@@ -270,12 +301,12 @@ body::after {
 }
 
 .sci {
-    height: 44px;
-    font-size: 0.9rem;
+    height: var(--sci-h);
+    font-size: clamp(0.68rem, 1.9vw, 0.9rem);
     font-weight: 600;
     font-family: inherit;
     border: 1px solid rgba(159, 231, 255, 0.12);
-    border-radius: 14px;
+    border-radius: clamp(10px, 2vw, 14px);
     cursor: pointer;
     background: var(--sci-bg);
     color: var(--operator-color);
@@ -297,19 +328,19 @@ body::after {
 .buttons {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+    gap: var(--gap-md);
 }
 
 /* DEFAULT BUTTONS */
 button {
     position: relative;
     overflow: hidden;
-    height: 72px;
-    font-size: 1.28rem;
+    height: var(--btn-h);
+    font-size: clamp(0.95rem, 3.4vw, 1.28rem);
     font-weight: 600;
     font-family: inherit;
     border: none;
-    border-radius: 24px;
+    border-radius: clamp(16px, 3vw, 24px);
     cursor: pointer;
     background: var(--button-bg);
     color: var(--muted-color);
@@ -370,7 +401,7 @@ button:focus-visible {
 
 /* EQUAL */
 .equal {
-    width: 72px;
+    width: var(--btn-h);
     border: 2px solid rgba(255, 255, 255, 0.75);
     border-radius: 50%;
     background: linear-gradient(135deg, var(--accent-color), #ff7a3d);
@@ -405,9 +436,10 @@ button:focus-visible {
 .history-panel {
     position: fixed;
     top: 0;
-    right: -340px;
+    right: 0;
     width: min(320px, 88vw);
     height: 100%;
+    height: 100dvh;
     padding: 90px 22px 22px;
     background: var(--panel-bg);
     border-left: 1px solid rgba(159, 231, 255, 0.15);
@@ -416,13 +448,16 @@ button:focus-visible {
     display: flex;
     flex-direction: column;
     gap: 14px;
-    transition: right 0.35s ease;
-    z-index: 50;
+    transform: translateX(110%);
+    transition: transform 0.35s ease;
+    z-index: 60;
+    pointer-events: none;
 }
 
 .history-panel.open {
-    right: 0;
+    transform: translateX(0);
     box-shadow: -20px 0 40px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
 }
 
 .history-header {
@@ -510,7 +545,7 @@ button:focus-visible {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.25s ease, transform 0.25s ease;
-    z-index: 60;
+    z-index: 70;
 }
 
 .toast.show {
@@ -522,9 +557,9 @@ button:focus-visible {
 
 .calc-footer {
     flex-shrink: 0;
-    padding: 10px 16px 16px;
+    padding: clamp(6px, 1.4vh, 10px) 16px clamp(8px, 1.8vh, 16px);
     text-align: center;
-    font-size: 0.75rem;
+    font-size: clamp(0.58rem, 1.6vw, 0.75rem);
     letter-spacing: 0.12em;
     color: rgba(255, 255, 255, 0.5);
 }
@@ -580,164 +615,27 @@ button:focus-visible {
 
 /* ================= RESPONSIVE ================= */
 
-@media (max-width: 900px) {
-    .main-section {
-        padding: 18px 18px 6px;
-    }
-
-    .calculator {
-        width: min(410px, 100%);
-        min-height: min(800px, calc(100vh - 118px));
-        padding: 24px 22px 18px;
-    }
-
-    #display {
-        height: 190px;
-        padding: 20px 16px;
-    }
-
-    #display .bottom {
-        font-size: 2.2rem;
-    }
-
-    .buttons {
-        gap: 14px;
-    }
-
-    button {
-        height: 68px;
-    }
-
-    .equal {
-        width: 68px;
-        height: 68px;
-    }
-}
-
 @media (max-width: 520px) {
-    .app-header {
-        margin: 16px 16px 6px;
-    }
-
-    .app-title {
-        font-size: 0.72rem;
-        letter-spacing: 0.22em;
-    }
-
-    .icon-btn {
-        width: 34px;
-        height: 34px;
-    }
-
-    .main-section {
-        padding: 10px 14px 4px;
-    }
-
-    .calculator {
-        width: 100%;
-        min-height: min(700px, calc(100vh - 96px));
-        padding: 18px 14px 12px;
-    }
-
-    #display {
-        height: 140px;
-        padding: 16px 14px;
-        font-size: 1.7rem;
-        margin-bottom: 14px;
-    }
-
-    #display .top {
-        font-size: 0.8rem;
-        letter-spacing: 0.08em;
-    }
-
-    #display .bottom {
-        font-size: 1.8rem;
-    }
-
-    .calculator-divider {
-        max-width: 170px;
-        margin-bottom: 16px;
-    }
-
-    .sci-buttons {
-        gap: 8px;
-        margin-bottom: 14px;
-    }
-
-    .sci {
-        height: 38px;
-        font-size: 0.78rem;
-        border-radius: 12px;
-    }
-
-    .buttons {
-        gap: 10px;
-    }
-
-    button {
-        height: 58px;
-        font-size: 1.1rem;
-        border-radius: 20px;
-    }
-
-    .equal {
-        width: 58px;
-        height: 58px;
-    }
-
-    .calc-footer {
-        padding: 8px 14px 12px;
-        font-size: 0.62rem;
-        letter-spacing: 0.08em;
+    .function-row {
+        grid-template-columns: repeat(5, 1fr);
     }
 
     .history-panel {
-        padding-top: 70px;
+        padding-top: 64px;
+        width: 100vw;
     }
 }
 
-@media (max-width: 380px) {
-    .main-section {
-        padding: 8px 10px 2px;
+@media (max-height: 620px) {
+    .app-header {
+        margin-bottom: 4px;
     }
 
-    .calculator {
-        min-height: min(640px, calc(100vh - 88px));
-        padding: 16px 10px 10px;
+    .calculator-divider {
+        margin-bottom: 8px;
     }
 
-    #display {
-        height: 126px;
-        border-radius: 22px;
-    }
-
-    #display .top {
-        font-size: 0.72rem;
-    }
-
-    #display .bottom {
-        font-size: 1.55rem;
-    }
-
-    .sci {
-        height: 34px;
-        font-size: 0.7rem;
-        border-radius: 10px;
-    }
-
-    .buttons {
-        gap: 8px;
-    }
-
-    button {
-        height: 52px;
-        font-size: 1rem;
-        border-radius: 18px;
-    }
-
-    .equal {
-        width: 52px;
-        height: 52px;
+    .sci-buttons {
+        margin-bottom: 8px;
     }
 }
