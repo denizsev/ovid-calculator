@@ -150,7 +150,76 @@ A + B + C + G kombinasyonu savunulabilir, taklit edilmesi zor bir konum yaratır
 
 ---
 
-## 5. Kaynaklar
+## 5. İkinci tur araştırma — kullanıcıların gerçek şikâyetleri (Ağu 2026)
+
+Apple/Samsung/Windows forumlarından ve uygulama yorumlarından derlenen
+somut şikâyetler. Bunlar "keşke" değil, insanların yazdığı gerçek sorunlar:
+
+1. **"Ne yazdığımı göremiyorum"** — geçmiş/ifade satırı olmaması. ✅ bizde var
+2. **"Kopyalayamıyorum"** — Samsung tabletlerde hesabı kopyalamak imkânsız;
+   dokununca seçiliyor, tekrar dokununca seçim kalkıyor. ✅ bizde tek tıkla kopya
+3. **"Tuşlar ve yazılar çok küçük"** — az gören kullanıcılar için erişilemez.
+   ❌ **eksik**: yazı boyutu ayarı yok
+4. **"Güncelleme normal işlevi kaldırıp kimsenin istemediği tuhaf özellikler
+   getirdi"** — özellik şişmesi uyarısı. Bizim `fx` katlama yaklaşımımız doğru.
+5. **"Hesap makinesini başka uygulama kullanırken küçültemiyorum"** — PWA
+   olarak kurulabilir olmamız bunu kısmen çözüyor. ✅
+
+### Bilimsel/mühendislik tarafında karşılanmayan ihtiyaçlar
+
+6. **Anlamlı basamak (significant figures)** — standart hesap makineleri onlarca
+   ondalık basamak verip **"sahte hassasiyet"** yaratıyor; sonuç, ölçümün gerçek
+   hassasiyetini yansıtmıyor. Bizim belirsizlik motorumuz bunun yarısını zaten
+   çözdü; bir "sig-fig modu" doğal devamı.
+7. **Tam kesir (exact fraction) aritmetiği** — `1/3 + 1/6` → `1/2` (0.5 değil).
+   Kesirli form **yuvarlanmış yaklaşık değil, tam değeri** verir. Devirli ondalığı
+   kesre çevirme de aranıyor. ❌ **eksik** — en güçlü sıradaki aday.
+8. **Asal çarpanlara ayırma / OBEB / OKEK** — devasa arama hacmi, onlarca
+   siteye tek başına trafik getiriyor. ❌ **eksik**
+9. **Taban dönüşümü (ikilik/onaltılık)** — yazılımcı kitlesi. ❌ **eksik**
+10. **Liste istatistiği** — ortalama, medyan, standart sapma. ❌ **eksik**
+
+> Ortak tema: **hassasiyet dürüstlüğü**. Belirsizlik + birim + anlamlı basamak +
+> tam kesir birleşince ortaya "sana yalan söylemeyen hesap makinesi" çıkıyor.
+> Bu, ücretsiz web'de kimsenin sahiplenmediği bir konum.
+
+---
+
+## 6. Görev Merkezi — topluluk sistemi (YAPILDI)
+
+### Neden böyle tasarlandı
+Site statik (GitHub Pages), arkada sunucu yok. Sahte bir "canlı skor tablosu"
+yapmak yerine üç katmanlı, gerçekten çalışan bir yapı kuruldu:
+
+1. **Yerel önce** — kullanıcı adı ve katkılar `localStorage`'da. Anında çalışır,
+   çevrimdışı çalışır, kayıt gerektirmez.
+2. **Gerçek gönderim kanalı** — "GitHub'a gönder" önceden doldurulmuş bir issue
+   açar. Token yok, sunucu yok, ama katkı gerçekten bize ulaşır.
+3. **Onur Panosu** — `contributors.json` dosyasından okunur. Bir katkı kabul
+   edilince bu dosyaya işlenir. Yani pano **gerçekten paylaşılan** bir veridir.
+
+### Oyunlaştırma kararları (araştırmaya dayalı)
+- Araştırma: *"gamification'ın başarısız olmasının en büyük nedeni ekiplerin
+  strateji yerine mekanikle başlaması."* Buradaki strateji: **kaliteli öneri
+  toplamak**. Bu yüzden gönderi 10 XP, **kabul edilen katkı 100 XP** — ödül
+  hacimde değil, işe yararlıkta.
+- Araştırma: *"kullanıcıların %74'ü skor tablosunda yarışmaktan hoşlanıyor"*
+  ama *"güncellenmeyen pano ihmal sinyali verir"* → pano tek bir JSON
+  dosyasından besleniyor, bakımı bir satırlık iş.
+- Rütbeler uzay temalı: Çaylak → Mürettebat → Pilot → Kaptan → Komutan →
+  Yıldız Amirali. Rozetlerde **kıtlık** ilkesi: "Yıldız Kâşifi" yalnızca
+  katkısı kabul edilenlere.
+
+### Kalan iş
+- [ ] Kabul edilen katkının arka planda **isimli bir yıldıza** dönüşmesi
+      (yol haritasındaki D maddesiyle birleşir — panoyu temaya bağlar)
+- [ ] Haftalık/aylık pano segmentasyonu (araştırma önerisi)
+- [ ] Aynı öneriye oy verme (şu an sunucusuz mümkün değil; GitHub issue
+      reaksiyonları bunu zaten sağlıyor)
+
+---
+
+## 7. Kaynaklar
 
 - Similarweb — Matematik kategorisi sıralaması ve calculator.net trafiği
 - Semrush — calculator.net trafik analizi

@@ -1735,8 +1735,12 @@ resultLine.addEventListener("click", async () => {
 // =====================================================================
 
 document.addEventListener("keydown", (event) => {
-    // don't hijack typing inside the converter inputs
+    // don't hijack typing inside the converter or Mission Control inputs
     if (event.target.matches("input, select, textarea")) return;
+
+    // while Mission Control is open it owns the keyboard, Escape included
+    const mission = document.getElementById("mission-modal");
+    if (mission && mission.classList.contains("open")) return;
 
     const key = event.key;
 
