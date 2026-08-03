@@ -56,63 +56,61 @@ function ensureAudio() {
 document.addEventListener("pointerdown", ensureAudio, { once: true });
 document.addEventListener("keydown", ensureAudio, { once: true });
 
-// soft space click
-function playSpaceSound() {
+// crisp modern UI tick — short sine blip with a fast attack/decay envelope
+function playTick(freq = 880) {
     ensureAudio();
 
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-
-    osc1.type = "sine";
-    osc1.frequency.setValueAtTime(120, ctx.currentTime);
-    osc1.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.25);
-
-    gain1.gain.setValueAtTime(0.05, ctx.currentTime);
-    gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-
-    osc2.type = "triangle";
-    osc2.frequency.setValueAtTime(700, ctx.currentTime);
-    osc2.frequency.exponentialRampToValueAtTime(250, ctx.currentTime + 0.2);
-
-    gain2.gain.setValueAtTime(0.03, ctx.currentTime);
-    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
-
-    osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-
-    osc1.start();
-    osc1.stop(ctx.currentTime + 0.3);
-
-    osc2.start();
-    osc2.stop(ctx.currentTime + 0.25);
-}
-
-// ⭐ WARP SOUND (=)
-function playEqualsSound() {
-    ensureAudio();
+    const now = ctx.currentTime;
 
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
 
-    osc.type = "sawtooth";
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, now);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.92, now + 0.05);
 
-    osc.frequency.setValueAtTime(600, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.5);
+    filter.type = "lowpass";
+    filter.frequency.value = 4000;
 
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.16, now + 0.006);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
 
-    osc.connect(gain);
+    osc.connect(filter);
+    filter.connect(gain);
     gain.connect(ctx.destination);
 
-    osc.start();
-    osc.stop(ctx.currentTime + 0.5);
+    osc.start(now);
+    osc.stop(now + 0.1);
+}
+
+// ✨ CONFIRM CHIME (=) — bright ascending two-note ping instead of a harsh sweep
+function playEqualsSound() {
+    ensureAudio();
+
+    const now = ctx.currentTime;
+    const notes = [660, 990];
+
+    notes.forEach((freq, i) => {
+        const start = now + i * 0.08;
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, start);
+
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.32);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(start);
+        osc.stop(start + 0.34);
+    });
 }
 
 // ================= BUTTON SOUND + PULSE =================
@@ -122,8 +120,14 @@ document.querySelectorAll("button").forEach(btn => {
 
         if (btn.id === "equals") {
             playEqualsSound();
+        } else if (btn.classList.contains("operator")) {
+            playTick(660);
+        } else if (btn.classList.contains("sci")) {
+            playTick(1040);
+        } else if (btn.classList.contains("num")) {
+            playTick(880);
         } else {
-            playSpaceSound();
+            playTick(520);
         }
 
         btn.classList.remove("pulse");
@@ -588,7 +592,7 @@ document.getElementById("equals").addEventListener("click", () => {
     calculate();
 });
 
-// ambient space hum
+// ambient space hum — fades in smoothly instead of snapping to full volume
 function startSpaceHum() {
 
     const osc = ctx.createOscillator();
@@ -597,7 +601,8 @@ function startSpaceHum() {
     osc.type = "sine";
     osc.frequency.value = 55;
 
-    gain.gain.value = 0.012;
+    gain.gain.value = 0;
+    gain.gain.linearRampToValueAtTime(0.009, ctx.currentTime + 3);
 
     osc.connect(gain);
     gain.connect(ctx.destination);
