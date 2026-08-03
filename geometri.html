@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Ovid Analitik Geometri — fonksiyon, nokta ve çemberleri koordinat düzleminde çiz. Hesap makinesiyle aynı motoru kullanır.">
+    <meta name="theme-color" content="#05070d">
+    <title>Ovid — Analitik Geometri</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="geo-page">
+
+<div class="sky" aria-hidden="true">
+  <div class="base"></div>
+  <div class="bleed anim"></div>
+  <div class="band anim"></div>
+  <div class="neb neb-a anim"></div>
+  <div class="neb neb-b anim"></div>
+  <div class="wisp wisp-a anim"></div>
+  <div class="wisp wisp-b anim"></div>
+  <div class="neb neb-c anim"></div>
+  <div class="dust anim"></div>
+  <div class="graticule"></div>
+  <div class="grain"></div>
+  <div class="vignette"></div>
+</div>
+
+<header class="app-header">
+    <h1 class="app-title">OVID · ANALİTİK GEOMETRİ</h1>
+
+    <div class="header-tools">
+        <a class="chip" href="index.html">← Hesap makinesi</a>
+        <button id="zoom-out" class="icon-btn" type="button" aria-label="Uzaklaş" title="Uzaklaş">−</button>
+        <button id="zoom-in" class="icon-btn" type="button" aria-label="Yakınlaş" title="Yakınlaş">+</button>
+        <button id="zoom-reset" class="chip" type="button" title="Görünümü sıfırla">Sıfırla</button>
+    </div>
+</header>
+
+<main class="geo-main">
+
+    <!-- NESNE LİSTESİ -->
+    <aside class="geo-side">
+        <form id="obj-form" autocomplete="off">
+            <label class="field">
+                <span>İfade ekle</span>
+                <input id="obj-input" type="text" spellcheck="false"
+                       placeholder="y = sin(x)   ·   (2,3)   ·   x^2+y^2=9"
+                       aria-describedby="obj-hint">
+            </label>
+            <button type="submit" class="mission-submit">Düzleme ekle</button>
+        </form>
+
+        <div id="obj-error" class="geo-error" role="status" aria-live="polite"></div>
+
+        <p class="panel-hint" id="obj-hint">
+            Hesap makinesiyle <strong>aynı motor</strong>: <code>sin</code>, <code>ln</code>,
+            <code>π</code>, <code>^</code> ve parantezler burada da geçerli.
+        </p>
+
+        <div class="geo-samples">
+            <button class="sample" type="button" data-expr="y=sin(x)">y = sin(x)</button>
+            <button class="sample" type="button" data-expr="y=x^2/4-3">y = x²/4 − 3</button>
+            <button class="sample" type="button" data-expr="y=1/x">y = 1/x</button>
+            <button class="sample" type="button" data-expr="x^2+y^2=9">x² + y² = 9</button>
+            <button class="sample" type="button" data-expr="(2,3)">(2, 3)</button>
+            <button class="sample" type="button" data-expr="x=2">x = 2</button>
+        </div>
+
+        <div class="panel-head">
+            <span>Nesneler</span>
+            <button id="obj-clear" class="text-btn" type="button">Temizle</button>
+        </div>
+
+        <ul id="obj-list" class="obj-list"></ul>
+        <p id="obj-empty" class="panel-empty" hidden>Henüz nesne yok.</p>
+    </aside>
+
+    <!-- DÜZLEM -->
+    <section class="geo-plane">
+        <canvas id="plane" tabindex="0"
+                aria-label="Koordinat düzlemi. Ok tuşlarıyla kaydır, artı ve eksi ile yakınlaş."></canvas>
+        <div id="readout" class="geo-readout" aria-live="off"></div>
+        <div class="geo-hint">Sürükle · tekerlek ile yakınlaş · ok tuşları</div>
+    </section>
+
+</main>
+
+<script src="engine.js"></script>
+<script src="geometri.js"></script>
+</body>
+</html>

@@ -49,7 +49,7 @@
 <div class="star-map" id="star-map" aria-hidden="true"></div>
 
 <header class="app-header">
-    <div class="app-title">OVID CALCULATOR</div>
+    <h1 class="app-title">OVID CALCULATOR</h1>
 
     <div class="header-tools">
         <button id="angle-toggle" class="chip" type="button" title="Açı birimi (derece / radyan)">DEG</button>
@@ -57,6 +57,12 @@
         <button id="fraction-toggle" class="chip" type="button" title="Kesir modu: sonuçları tam kesir olarak göster" aria-pressed="false" aria-label="Kesir modu">a/b</button>
         <button id="sound-toggle" class="chip" type="button" title="Sesi aç/kapat" aria-pressed="true">🔊</button>
         <button id="size-toggle" class="chip" type="button" title="Yazı ve tuş boyutu" aria-label="Yazı ve tuş boyutunu değiştir">A</button>
+        <a class="icon-btn" href="geometri.html" aria-label="Analitik geometri" title="Analitik geometri — grafik çiz">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 21V3M3 21h18"></path>
+                <path d="M6 15c3 0 4-9 7-9s4 6 8 6"></path>
+            </svg>
+        </a>
         <button id="help-open" class="icon-btn" type="button" aria-label="Yardım ve kısayollar" aria-expanded="false" title="Nasıl kullanılır?">?</button>
         <button id="mission-open" class="icon-btn" type="button" aria-label="Görev Merkezi'ni aç" aria-expanded="false" title="Görev Merkezi — hata bildir, öneri gönder">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -297,10 +303,10 @@
 <!-- ================= YARDIM ================= -->
 <div class="mission-modal" id="help-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="help-heading">
     <div class="mission-box">
-        <header class="mission-header">
+        <div class="mission-header">
             <h2 id="help-heading">NASIL KULLANILIR?</h2>
             <button id="help-close" class="icon-btn" type="button" aria-label="Kapat">✕</button>
-        </header>
+        </div>
 
         <p class="mission-intro">
             Ovid sıradan bir hesap makinesi değil: hata payını, birimi ve kesin değeri
@@ -351,6 +357,12 @@
                 </section>
 
                 <section class="help-item">
+                    <h3><span class="help-key">📈</span> Analitik geometri</h3>
+                    <p>Üstteki grafik simgesi ayrı bir sayfa açar: fonksiyon, nokta ve çember çizersin. Aynı motoru kullanır.</p>
+                    <code>y = sin(x) · x² + y² = 9 · (2, 3)</code>
+                </section>
+
+                <section class="help-item">
                     <h3><span class="help-key">A</span> Boyut</h3>
                     <p>Tuşları ve yazıyı üç kademe büyütür.</p>
                 </section>
@@ -384,10 +396,10 @@
 <div class="mission-modal" id="mission-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="mission-heading">
     <div class="mission-box">
 
-        <header class="mission-header">
+        <div class="mission-header">
             <h2 id="mission-heading">GÖREV MERKEZİ</h2>
             <button id="mission-close" class="icon-btn" type="button" aria-label="Kapat">✕</button>
-        </header>
+        </div>
 
         <p class="mission-intro">
             Bir hata mı buldun, yoksa aklında bir fikir mi var? Gönder — mantıklı ve
@@ -471,6 +483,7 @@
 </div>
 
 <script src="sky.js"></script>
+<script src="engine.js"></script>
 <script src="myJava.js"></script>
 <script src="community.js"></script>
 </body>
