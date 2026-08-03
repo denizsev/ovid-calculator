@@ -2590,23 +2590,6 @@ function startSpaceHum() {
 startSpaceHum();
 
 // =====================================================================
-// BACKGROUND VIDEO: skip the 16 MB download on metered / slow connections
-// =====================================================================
-
-(function guardVideo() {
-    const conn = navigator.connection;
-    if (!conn) return;
-
-    const slow = conn.saveData || /2g/.test(conn.effectiveType || "");
-    if (slow) {
-        const video = $("bg-video");
-        video.removeAttribute("autoplay");
-        video.preload = "none";
-        video.remove(); // the CSS starfield carries the theme on its own
-    }
-})();
-
-// =====================================================================
 // OFFLINE SUPPORT
 // =====================================================================
 
