@@ -2,13 +2,15 @@
    Caches the app shell only — the 16 MB background video is deliberately
    left to the network so installing the app stays cheap. */
 
-const CACHE = "ovid-shell-v1";
+const CACHE = "ovid-shell-v2";
 
 const SHELL = [
     "./",
     "./index.html",
     "./style.css",
     "./myJava.js",
+    "./community.js",
+    "./contributors.json",
     "./manifest.json",
     "./images/icon-192.png",
     "./images/icon-512.png"
