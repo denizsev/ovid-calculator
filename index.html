@@ -59,6 +59,19 @@
         <div class="sr-only" id="a11y-result" role="status" aria-live="polite"></div>
     </div>
 
+    <!-- "Ne olurdu?" — bir sayıyı kaydırıp sonucu canlı izle -->
+    <div class="whatif" id="whatif" hidden>
+        <div class="whatif-head">
+            <span class="whatif-label" id="whatif-label">x</span>
+            <button id="whatif-close" class="text-btn" type="button" aria-label="Kaydırıcıyı kapat">✕</button>
+        </div>
+        <input id="whatif-range" type="range" aria-label="Değeri değiştir">
+        <div class="whatif-bounds">
+            <span id="whatif-min"></span>
+            <span id="whatif-max"></span>
+        </div>
+    </div>
+
     <div class="calculator-divider" aria-hidden="true"></div>
 
     <!-- SCIENTIFIC PAD (collapsible) -->
@@ -141,6 +154,7 @@
         <button class="panel-tab" data-tab="constants" role="tab" aria-selected="false">Sabitler</button>
         <button class="panel-tab" data-tab="units" role="tab" aria-selected="false">Birimler</button>
         <button class="panel-tab" data-tab="convert" role="tab" aria-selected="false">Çevirici</button>
+        <button class="panel-tab" data-tab="tools" role="tab" aria-selected="false">Araçlar</button>
     </div>
 
     <div class="panel-body">
@@ -190,6 +204,54 @@
 
             <output class="convert-result" id="convert-result">—</output>
             <button id="convert-use" class="text-btn" type="button">Sonucu hesap makinesine aktar</button>
+        </section>
+
+        <section class="panel-pane" id="pane-tools" role="tabpanel">
+
+            <details class="tool" open>
+                <summary>Sayı teorisi</summary>
+                <label class="field">
+                    <span>Sayı</span>
+                    <input id="nt-input" type="number" inputmode="numeric" value="360" min="1">
+                </label>
+                <div id="nt-result" class="tool-result"></div>
+
+                <label class="field">
+                    <span>İkinci sayı (OBEB / OKEK için)</span>
+                    <input id="nt-second" type="number" inputmode="numeric" value="48" min="1">
+                </label>
+                <div id="nt-pair" class="tool-result"></div>
+            </details>
+
+            <details class="tool">
+                <summary>Taban dönüşümü</summary>
+                <div class="convert-row">
+                    <label class="field">
+                        <span>Değer</span>
+                        <input id="base-input" type="text" inputmode="text" value="255" spellcheck="false">
+                    </label>
+                    <label class="field">
+                        <span>Giriş tabanı</span>
+                        <select id="base-from">
+                            <option value="10">10 — onluk</option>
+                            <option value="2">2 — ikilik</option>
+                            <option value="8">8 — sekizlik</option>
+                            <option value="16">16 — onaltılık</option>
+                        </select>
+                    </label>
+                </div>
+                <div id="base-result" class="tool-result"></div>
+            </details>
+
+            <details class="tool">
+                <summary>Liste istatistiği</summary>
+                <label class="field">
+                    <span>Sayılar (virgül, boşluk veya satırla ayır)</span>
+                    <textarea id="stat-input" rows="3" spellcheck="false">12, 7, 3, 9, 7, 15, 4</textarea>
+                </label>
+                <div id="stat-result" class="tool-result"></div>
+            </details>
+
         </section>
     </div>
 </aside>
