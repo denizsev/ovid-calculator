@@ -630,7 +630,6 @@ if (!storeGet("ovid-seen-help")) {
     cq("help-open").addEventListener("click", () => cq("help-open").classList.remove("nudge"), { once: true });
 }
 
-buildLanguagePicker("lang-mount");
 
 /* Everything the Mission Control draws itself has to be redrawn on a
    language switch; the declarative markup is handled by i18n.js. */

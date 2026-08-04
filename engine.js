@@ -15,6 +15,22 @@
 
 const memoryStore = {};
 
+/* privacy.js installs a gate here. It decides whether a given key may be
+   written to the device at all. Keeping the check inside storeSet is what
+   makes the consent real: a declined category cannot be persisted by any
+   caller, present or future, because there is no other way to write.
+   Until the gate is installed nothing is allowed to touch localStorage,
+   so a first-time visitor's disk stays untouched until they have chosen. */
+let storageGate = null;
+
+function setStorageGate(fn) {
+    storageGate = fn;
+}
+
+function storeAllowed(key) {
+    return typeof storageGate === "function" ? storageGate(key) === true : false;
+}
+
 function storeGet(key) {
     try {
         const value = window.localStorage.getItem(key);
@@ -24,8 +40,20 @@ function storeGet(key) {
     }
 }
 
+/* A declined key still lives in memoryStore, so the app keeps behaving
+   normally for this visit — it simply leaves nothing behind afterwards. */
 function storeSet(key, value) {
     memoryStore[key] = value;
+
+    if (!storeAllowed(key)) {
+        try {
+            window.localStorage.removeItem(key);
+        } catch (e) {
+            /* nothing to clean up */
+        }
+        return false;
+    }
+
     try {
         window.localStorage.setItem(key, value);
         return true;

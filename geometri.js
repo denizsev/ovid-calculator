@@ -547,7 +547,6 @@ function renderGeoHint() {
     });
 }
 
-buildLanguagePicker("lang-mount");
 renderGeoHint();
 
 onLocaleChange(() => {
