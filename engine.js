@@ -380,7 +380,7 @@ function radPerUnit() {
 
 /* `domain` returns an error message when the input is outside the function's
    domain. Without it these silently produced NaN and the user was told
-   "Tanımsız sonuç" with no idea which argument was at fault. */
+   only "Undefined result", with no idea which argument was at fault. */
 const FUNCTIONS = {
     sin: { f: x => Math.sin(toRadians(x)), df: x => Math.cos(toRadians(x)) * radPerUnit() },
     cos: { f: x => Math.cos(toRadians(x)), df: x => -Math.sin(toRadians(x)) * radPerUnit() },
@@ -417,7 +417,7 @@ const FUNCTIONS = {
     sqrt: {
         f: Math.sqrt,
         df: x => 1 / (2 * Math.sqrt(x)),
-        domain: x => x < 0 ? "Negatif sayının karekökü alınamaz" : null
+        domain: x => x < 0 ? t("err.negativeRoot") : null
     },
     abs: { f: Math.abs, df: x => Math.sign(x) }
 };
