@@ -108,6 +108,11 @@ function saveEntries(entries) {
 let profile = loadProfile();
 let entries = loadEntries();
 
+// Set right after a submit so renderEntries() can highlight that one entry;
+// cleared once it has been drawn so later re-renders (e.g. after a delete)
+// don't replay the animation on an unrelated item.
+let justSubmittedId = null;
+
 function totalXp() {
     return entries.reduce(
         (sum, entry) => sum + XP_SUBMIT + (entry.status === "accepted" ? XP_ACCEPTED : 0),
@@ -208,18 +213,18 @@ modal.addEventListener("click", (event) => {
     if (event.target === modal) closeMission();
 });
 
-document.querySelectorAll(".mission-tab").forEach(tab => {
-    tab.addEventListener("click", () => {
-        document.querySelectorAll(".mission-tab").forEach(other => {
-            other.classList.remove("active");
-            other.setAttribute("aria-selected", "false");
-        });
-        document.querySelectorAll(".mission-pane").forEach(p => p.classList.remove("active"));
-
-        tab.classList.add("active");
-        tab.setAttribute("aria-selected", "true");
-        cq("mission-" + tab.dataset.mtab).classList.add("active");
+function switchMissionTab(name) {
+    document.querySelectorAll(".mission-tab").forEach(other => {
+        const active = other.dataset.mtab === name;
+        other.classList.toggle("active", active);
+        other.setAttribute("aria-selected", String(active));
     });
+    document.querySelectorAll(".mission-pane").forEach(p => p.classList.remove("active"));
+    cq("mission-" + name).classList.add("active");
+}
+
+document.querySelectorAll(".mission-tab").forEach(tab => {
+    tab.addEventListener("click", () => switchMissionTab(tab.dataset.mtab));
 });
 
 // ---------------------------------------------------------------------
@@ -295,6 +300,7 @@ cq("mission-form").addEventListener("submit", (event) => {
     entries.unshift(entry);
     entries = entries.slice(0, 100);
     saveEntries(entries);
+    justSubmittedId = entry.id;
 
     const after = t(rankFor(totalXp()).current.key);
 
@@ -302,6 +308,11 @@ cq("mission-form").addEventListener("submit", (event) => {
     cq("mission-detail").value = "";
 
     renderAll();
+    justSubmittedId = null;
+
+    // The toast tells them to send it to GitHub "below" — that only means
+    // something if the tab holding the send button is actually in view.
+    switchMissionTab("record");
 
     if (after !== before) {
         missionToast(t("mission.savedRank", { r: after }));
@@ -368,9 +379,12 @@ function renderEntries() {
         return;
     }
 
-    entries.forEach(entry => {
+    entries.forEach((entry, index) => {
         const meta = TYPE_LABELS[entry.type];
         const item = el("li", "entry");
+        // draws the eye to the one entry that just arrived, and to the
+        // button that actually sends it — everything else was a local draft
+        if (index === 0 && entry.id === justSubmittedId) item.classList.add("arrived");
 
         const head = el("div", "entry-head");
         head.append(
@@ -384,7 +398,7 @@ function renderEntries() {
         const actions = el("div", "entry-actions");
 
         if (entry.status === "draft") {
-            const send = el("button", "text-btn", t("mission.sendToGithub"));
+            const send = el("button", "text-btn entry-send", t("mission.sendToGithub"));
             send.type = "button";
             send.addEventListener("click", () => {
                 window.open(issueUrl(entry), "_blank", "noopener");
