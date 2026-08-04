@@ -188,14 +188,14 @@ const scalar = n => new Quantity(n, 0, DIMLESS, null, ratFromNumber(n));
 
 function requireDimless(q, what) {
     if (!isDimless(q.dim)) {
-        throw new Error(what + " birimsiz olmalı");
+        throw new Error(t("err.dimensionless", { what }));
     }
 }
 
 // ---- unit-aware arithmetic with Gaussian error propagation ----
 
 function qAdd(a, b, sign = 1) {
-    if (!sameDim(a.dim, b.dim)) throw new Error("Birimler uyuşmuyor");
+    if (!sameDim(a.dim, b.dim)) throw new Error(t("err.unitMismatch"));
     return new Quantity(
         a.v + sign * b.v,
         Math.hypot(a.u, b.u),
@@ -278,10 +278,10 @@ function qDiv(a, b) {
 }
 
 function qPow(a, b) {
-    requireDimless(b, "Üs");
+    requireDimless(b, t("err.exponent"));
 
     if (!isDimless(a.dim) && !Number.isInteger(b.v)) {
-        throw new Error("Birimli değerin üssü tam sayı olmalı");
+        throw new Error(t("err.integerExponent"));
     }
 
     const value = Math.pow(a.v, b.v);
@@ -305,8 +305,8 @@ function qPow(a, b) {
    mathematical convention gives 2. Follow the sign of the divisor, which is
    what every number-theory text (and Python) does. */
 function qMod(a, b) {
-    if (!sameDim(a.dim, b.dim)) throw new Error("Birimler uyuşmuyor");
-    if (b.v === 0) throw new Error("Sıfıra göre mod alınamaz");
+    if (!sameDim(a.dim, b.dim)) throw new Error(t("err.unitMismatch"));
+    if (b.v === 0) throw new Error(t("err.modZero"));
 
     const value = ((a.v % b.v) + b.v) % b.v;
 
@@ -319,7 +319,7 @@ function qNeg(a) {
 }
 
 function factorial(n) {
-    if (n < 0 || !Number.isInteger(n)) throw new Error("Faktöriyel yalnızca pozitif tam sayılar için");
+    if (n < 0 || !Number.isInteger(n)) throw new Error(t("err.factorial"));
     if (n > 170) return Infinity;
     let acc = 1;
     for (let i = 2; i <= n; i++) acc *= i;
@@ -327,7 +327,7 @@ function factorial(n) {
 }
 
 function qFactorial(a) {
-    requireDimless(a, "Faktöriyel girdisi");
+    requireDimless(a, t("err.factorialInput"));
 
     const value = factorial(a.v);
 
@@ -361,29 +361,29 @@ const FUNCTIONS = {
         df: x => radPerUnit() / Math.pow(Math.cos(toRadians(x)), 2),
         // cos(90°) is not exactly 0 in binary, so tan(90) returned 1.6e16
         domain: x => Math.abs(Math.cos(toRadians(x))) < 1e-12
-            ? "tan burada tanımsız (90° + k·180°)"
+            ? t("err.tanUndefined")
             : null
     },
     asin: {
         f: x => fromRadians(Math.asin(x)),
         df: x => 1 / (Math.sqrt(1 - x * x) * radPerUnit()),
-        domain: x => (x < -1 || x > 1) ? "asin girdisi −1 ile 1 arasında olmalı" : null
+        domain: x => (x < -1 || x > 1) ? t("err.asinRange") : null
     },
     acos: {
         f: x => fromRadians(Math.acos(x)),
         df: x => -1 / (Math.sqrt(1 - x * x) * radPerUnit()),
-        domain: x => (x < -1 || x > 1) ? "acos girdisi −1 ile 1 arasında olmalı" : null
+        domain: x => (x < -1 || x > 1) ? t("err.acosRange") : null
     },
     atan: { f: x => fromRadians(Math.atan(x)), df: x => 1 / ((1 + x * x) * radPerUnit()) },
     ln: {
         f: Math.log,
         df: x => 1 / x,
-        domain: x => x < 0 ? "ln negatif sayı için tanımsız" : (x === 0 ? "ln(0) tanımsız" : null)
+        domain: x => x < 0 ? t("err.lnNegative") : (x === 0 ? t("err.lnZero") : null)
     },
     log: {
         f: Math.log10,
         df: x => 1 / (x * Math.LN10),
-        domain: x => x < 0 ? "log negatif sayı için tanımsız" : (x === 0 ? "log(0) tanımsız" : null)
+        domain: x => x < 0 ? t("err.logNegative") : (x === 0 ? t("err.logZero") : null)
     },
     exp: { f: Math.exp, df: Math.exp },
     sqrt: {
@@ -416,8 +416,8 @@ function qApplyFunction(name, a) {
 
     // sqrt is the one function that is meaningful on a dimensioned value
     if (name === "sqrt" && !isDimless(a.dim)) {
-        if (a.v < 0) throw new Error("Negatif sayının karekökü alınamaz");
-        if (a.dim.some(d => d % 2 !== 0)) throw new Error("Bu birimin karekökü alınamaz");
+        if (a.v < 0) throw new Error(t("err.negativeRoot"));
+        if (a.dim.some(d => d % 2 !== 0)) throw new Error(t("err.rootOfUnit"));
         return new Quantity(
             Math.sqrt(a.v),
             a.u / (2 * Math.sqrt(a.v)),
@@ -425,7 +425,7 @@ function qApplyFunction(name, a) {
         );
     }
 
-    requireDimless(a, name + " girdisi");
+    requireDimless(a, t("err.functionInput", { fn: name }));
 
     if (fn.domain) {
         const problem = fn.domain(a.v);
@@ -449,6 +449,7 @@ const UNITS = {
     mm: { f: 0.001, d: [1, 0, 0, 0] },
     mi: { f: 1609.344, d: [1, 0, 0, 0] },
     ft: { f: 0.3048, d: [1, 0, 0, 0] },
+    in: { f: 0.0254, d: [1, 0, 0, 0] },
     AU: { f: 1.495978707e11, d: [1, 0, 0, 0] },
     ly: { f: 9.4607304725808e15, d: [1, 0, 0, 0] },
     pc: { f: 3.0856775814913673e16, d: [1, 0, 0, 0] },
@@ -458,6 +459,8 @@ const UNITS = {
     g: { f: 0.001, d: [0, 1, 0, 0] },
     mg: { f: 1e-6, d: [0, 1, 0, 0] },
     ton: { f: 1000, d: [0, 1, 0, 0] },
+    t: { f: 1000, d: [0, 1, 0, 0] },
+    oz: { f: 0.028349523125, d: [0, 1, 0, 0] },
     lb: { f: 0.45359237, d: [0, 1, 0, 0] },
 
     // time
@@ -468,7 +471,10 @@ const UNITS = {
     sa: { f: 3600, d: [0, 0, 1, 0] },
     h: { f: 3600, d: [0, 0, 1, 0] },
     gün: { f: 86400, d: [0, 0, 1, 0] },
+    day: { f: 86400, d: [0, 0, 1, 0] },
+    week: { f: 604800, d: [0, 0, 1, 0] },
     yıl: { f: 31557600, d: [0, 0, 1, 0] },
+    yr: { f: 31557600, d: [0, 0, 1, 0] },
 
     // data
     B: { f: 1, d: [0, 0, 0, 1] },
@@ -516,7 +522,7 @@ function tokenize(input) {
     const readNumber = () => {
         let num = "";
         while (i < input.length && /[0-9.]/.test(input[i])) num += input[i++];
-        if ((num.match(/\./g) || []).length > 1) throw new Error("Geçersiz sayı");
+        if ((num.match(/\./g) || []).length > 1) throw new Error(t("err.invalidNumber"));
         return num;
     };
 
@@ -544,7 +550,7 @@ function tokenize(input) {
             if (input[i] === "±") {
                 i++;
                 skipSpace();
-                if (!/[0-9.]/.test(input[i] || "")) throw new Error("± sonrası sayı bekleniyor");
+                if (!/[0-9.]/.test(input[i] || "")) throw new Error(t("err.afterUncert"));
                 uncertRaw = readNumber();
             } else {
                 i = save;
@@ -588,7 +594,7 @@ function tokenize(input) {
                 // a bound variable is a plain float: no exact form to preserve
                 tokens.push({ type: "number", value: VARIABLES[name], uncert: 0, unit: null, raw: null });
             } else {
-                throw new Error("Bilinmeyen ifade: " + name);
+                throw new Error(t("err.unknownToken") + name);
             }
             continue;
         }
@@ -611,7 +617,7 @@ function tokenize(input) {
             continue;
         }
 
-        throw new Error("Geçersiz karakter: " + ch);
+        throw new Error(t("err.invalidChar") + ch);
     }
 
     return tokens;
@@ -722,7 +728,7 @@ function toRPN(tokens) {
                         if (top.type === "paren" && top.value === "(") { found = true; break; }
                         output.push(top);
                     }
-                    if (!found) throw new Error("Parantez hatası");
+                    if (!found) throw new Error(t("err.brackets"));
                     const top = stack[stack.length - 1];
                     if (top && (top.type === "function" || top.type === "unary")) {
                         output.push(stack.pop());
@@ -734,7 +740,7 @@ function toRPN(tokens) {
 
     while (stack.length) {
         const top = stack.pop();
-        if (top.type === "paren") throw new Error("Parantez hatası");
+        if (top.type === "paren") throw new Error(t("err.brackets"));
         output.push(top);
     }
 
@@ -769,7 +775,7 @@ function quantityFromToken(token) {
 function buildAST(rpn) {
     const stack = [];
     const pop = () => {
-        if (!stack.length) throw new Error("Eksik ifade");
+        if (!stack.length) throw new Error(t("err.incomplete"));
         return stack.pop();
     };
 
@@ -796,7 +802,7 @@ function buildAST(rpn) {
         }
     }
 
-    if (stack.length !== 1) throw new Error("Eksik ifade");
+    if (stack.length !== 1) throw new Error(t("err.incomplete"));
     return stack[0];
 }
 
@@ -819,7 +825,7 @@ function evalNode(node) {
             }
         }
     }
-    throw new Error("Eksik ifade");
+    throw new Error(t("err.incomplete"));
 }
 
 /* Reduce the single next operation, leftmost-innermost. Because the AST

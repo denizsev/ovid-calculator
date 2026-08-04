@@ -1,12 +1,12 @@
 /* =====================================================================
-   OVID CALCULATOR — GÖREV MERKEZİ (Mission Control)
+   OVID CALCULATOR — MISSION CONTROL
 
    Users report bugs, propose features, and get credited when a proposal
    is accepted. The site is static, so there is no server to post to:
 
      1. Everything is stored locally first, so the flow works instantly
         and offline.
-     2. "GitHub'a gönder" opens a prefilled issue — the real review
+     2. "Send to GitHub" opens a prefilled issue — the real review
         channel, and it needs no token or backend.
      3. The Hall of Fame reads contributors.json from the repo, which is
         updated when a contribution is accepted. That makes it a genuinely
@@ -25,56 +25,56 @@ const XP_SUBMIT = 10;
 const XP_ACCEPTED = 100;
 
 const RANKS = [
-    { min: 0, title: "Çaylak", icon: "🌑" },
-    { min: 50, title: "Mürettebat", icon: "🌘" },
-    { min: 150, title: "Pilot", icon: "🌗" },
-    { min: 400, title: "Kaptan", icon: "🌖" },
-    { min: 900, title: "Komutan", icon: "🌕" },
-    { min: 2000, title: "Yıldız Amirali", icon: "⭐" }
+    { min: 0, key: "rank.rookie", icon: "🌑" },
+    { min: 50, key: "rank.crew", icon: "🌘" },
+    { min: 150, key: "rank.pilot", icon: "🌗" },
+    { min: 400, key: "rank.captain", icon: "🌖" },
+    { min: 900, key: "rank.commander", icon: "🌕" },
+    { min: 2000, key: "rank.admiral", icon: "⭐" }
 ];
 
 const BADGES = [
     {
         id: "first-contact",
-        name: "İlk Temas",
+        key: "badge.firstContact", hintKey: "badge.firstContactHint",
         icon: "📡",
-        hint: "İlk katkını gönder",
+        
         earned: (entries) => entries.length >= 1
     },
     {
         id: "bug-hunter",
-        name: "Hata Avcısı",
+        key: "badge.bugHunter", hintKey: "badge.bugHunterHint",
         icon: "🐞",
-        hint: "3 hata bildir",
+        
         earned: (entries) => entries.filter(e => e.type === "bug").length >= 3
     },
     {
         id: "inventor",
-        name: "Mucit",
+        key: "badge.inventor", hintKey: "badge.inventorHint",
         icon: "💡",
-        hint: "3 öneri gönder",
+        
         earned: (entries) => entries.filter(e => e.type === "idea").length >= 3
     },
     {
         id: "persistent",
-        name: "Sadık Mürettebat",
+        key: "badge.persistent", hintKey: "badge.persistentHint",
         icon: "🛰️",
-        hint: "3 ayrı günde katkı ver",
+        
         earned: (entries) => new Set(entries.map(e => new Date(e.at).toDateString())).size >= 3
     },
     {
         id: "star-explorer",
-        name: "Yıldız Kâşifi",
+        key: "badge.starExplorer", hintKey: "badge.starExplorerHint",
         icon: "⭐",
-        hint: "Bir katkın kabul edilsin",
+        
         earned: (entries) => entries.some(e => e.status === "accepted")
     }
 ];
 
 const TYPE_LABELS = {
-    bug: { label: "Hata bildirimi", icon: "🐞", issueLabel: "bug" },
-    idea: { label: "Yeni özellik önerisi", icon: "💡", issueLabel: "enhancement" },
-    improve: { label: "İyileştirme önerisi", icon: "⚡", issueLabel: "improvement" }
+    bug: { key: "type.bug", icon: "🐞", issueLabel: "bug" },
+    idea: { key: "type.idea", icon: "💡", issueLabel: "enhancement" },
+    improve: { key: "type.improve", icon: "⚡", issueLabel: "improvement" }
 };
 
 // ---------------------------------------------------------------------
@@ -210,9 +210,9 @@ modal.addEventListener("click", (event) => {
 
 document.querySelectorAll(".mission-tab").forEach(tab => {
     tab.addEventListener("click", () => {
-        document.querySelectorAll(".mission-tab").forEach(t => {
-            t.classList.remove("active");
-            t.setAttribute("aria-selected", "false");
+        document.querySelectorAll(".mission-tab").forEach(other => {
+            other.classList.remove("active");
+            other.setAttribute("aria-selected", "false");
         });
         document.querySelectorAll(".mission-pane").forEach(p => p.classList.remove("active"));
 
@@ -241,13 +241,13 @@ function issueUrl(entry) {
     const meta = TYPE_LABELS[entry.type];
 
     const body = [
-        "**Gönderen:** " + entry.name,
-        "**Tür:** " + meta.label,
+        "**" + t("mission.sentBy") + ":** " + entry.name,
+        "**" + t("mission.kind") + ":** " + t(meta.key),
         "",
         entry.detail,
         "",
         "---",
-        "_Ovid Calculator Görev Merkezi üzerinden gönderildi._"
+        "_" + t("mission.via") + "_"
     ].join("\n");
 
     return "https://github.com/" + REPO + "/issues/new" +
@@ -265,15 +265,15 @@ cq("mission-form").addEventListener("submit", (event) => {
     const detail = cq("mission-detail").value.trim();
 
     if (!validName(name)) {
-        missionToast("Kullanıcı adı 3–20 karakter olmalı.");
+        missionToast(t("mission.errName"));
         return;
     }
     if (title.length < 5) {
-        missionToast("Başlık en az 5 karakter olmalı.");
+        missionToast(t("mission.errTitle"));
         return;
     }
     if (detail.length < 20) {
-        missionToast("Biraz daha ayrıntı yaz — en az 20 karakter.");
+        missionToast(t("mission.errDetail"));
         return;
     }
 
@@ -290,13 +290,13 @@ cq("mission-form").addEventListener("submit", (event) => {
         status: "draft"
     };
 
-    const before = rankFor(totalXp()).current.title;
+    const before = t(rankFor(totalXp()).current.key);
 
     entries.unshift(entry);
     entries = entries.slice(0, 100);
     saveEntries(entries);
 
-    const after = rankFor(totalXp()).current.title;
+    const after = t(rankFor(totalXp()).current.key);
 
     cq("mission-title").value = "";
     cq("mission-detail").value = "";
@@ -304,9 +304,9 @@ cq("mission-form").addEventListener("submit", (event) => {
     renderAll();
 
     if (after !== before) {
-        missionToast("Kaydedildi. Yeni rütbe: " + after + "! 🎉");
+        missionToast(t("mission.savedRank", { r: after }));
     } else {
-        missionToast("Kaydedildi. Aşağıdan GitHub'a gönderebilirsin.");
+        missionToast(t("mission.saved"));
     }
 });
 
@@ -319,7 +319,7 @@ function renderProgress() {
     const { current, next } = rankFor(xp);
 
     cq("rank-icon").textContent = current.icon;
-    cq("rank-title").textContent = current.title;
+    cq("rank-title").textContent = t(current.key);
     cq("rank-xp").textContent = xp + " XP";
 
     const bar = cq("rank-bar-fill");
@@ -328,10 +328,10 @@ function renderProgress() {
         const span = next.min - current.min;
         const done = xp - current.min;
         bar.style.width = Math.max(4, Math.min(100, (done / span) * 100)) + "%";
-        cq("rank-next").textContent = (next.min - xp) + " XP sonra: " + next.title;
+        cq("rank-next").textContent = t("mission.nextRank", { n: next.min - xp, r: t(next.key) });
     } else {
         bar.style.width = "100%";
-        cq("rank-next").textContent = "En yüksek rütbedesin.";
+        cq("rank-next").textContent = t("mission.topRank");
     }
 }
 
@@ -345,8 +345,8 @@ function renderBadges() {
         const item = el("li", "badge" + (earned ? " earned" : ""));
         item.append(
             el("span", "badge-icon", badge.icon),
-            el("span", "badge-name", badge.name),
-            el("span", "badge-hint", earned ? "Kazanıldı" : badge.hint)
+            el("span", "badge-name", t(badge.key)),
+            el("span", "badge-hint", earned ? t("badge.earned") : t(badge.hintKey))
         );
 
         list.appendChild(item);
@@ -354,9 +354,9 @@ function renderBadges() {
 }
 
 const STATUS_LABELS = {
-    draft: "Gönderilmedi",
-    sent: "GitHub'a gönderildi",
-    accepted: "Kabul edildi"
+    draft: "mission.statusDraft",
+    sent: "mission.statusSent",
+    accepted: "mission.statusAccepted"
 };
 
 function renderEntries() {
@@ -364,7 +364,7 @@ function renderEntries() {
     list.textContent = "";
 
     if (!entries.length) {
-        list.appendChild(el("li", "mission-empty", "Henüz katkın yok. İlk fikrini gönder!"));
+        list.appendChild(el("li", "mission-empty", t("mission.noEntries")));
         return;
     }
 
@@ -376,7 +376,7 @@ function renderEntries() {
         head.append(
             el("span", "entry-icon", meta.icon),
             el("span", "entry-title", entry.title),
-            el("span", "entry-status status-" + entry.status, STATUS_LABELS[entry.status])
+            el("span", "entry-status status-" + entry.status, t(STATUS_LABELS[entry.status]))
         );
 
         const detail = el("p", "entry-detail", entry.detail);
@@ -384,7 +384,7 @@ function renderEntries() {
         const actions = el("div", "entry-actions");
 
         if (entry.status === "draft") {
-            const send = el("button", "text-btn", "GitHub'a gönder ↗");
+            const send = el("button", "text-btn", t("mission.sendToGithub"));
             send.type = "button";
             send.addEventListener("click", () => {
                 window.open(issueUrl(entry), "_blank", "noopener");
@@ -395,10 +395,10 @@ function renderEntries() {
             actions.appendChild(send);
         }
 
-        const remove = el("button", "text-btn danger", "Sil");
+        const remove = el("button", "text-btn danger", t("mission.delete"));
         remove.type = "button";
         remove.addEventListener("click", () => {
-            if (!confirm("Bu katkı kalıcı olarak silinecek. Emin misin?")) return;
+            if (!confirm(t("mission.confirmDelete"))) return;
             entries = entries.filter(e => e.id !== entry.id);
             saveEntries(entries);
             renderAll();
@@ -455,7 +455,7 @@ function renderStarMap(people) {
         star.style.setProperty("--star-delay", ((hash % 40) / 10) + "s");
         star.setAttribute(
             "aria-label",
-            person.name + " — kabul edilen katkı: " + (person.accepted || 0)
+            t("badge.starLabel", { name: person.name, n: person.accepted || 0 })
         );
 
         star.append(el("span", "core"), el("span", "label", person.name));
@@ -477,7 +477,7 @@ async function renderHall() {
 
     const list = cq("hall-list");
     list.textContent = "";
-    list.appendChild(el("li", "mission-empty", "Yükleniyor…"));
+    list.appendChild(el("li", "mission-empty", t("mission.loading")));
 
     let data;
     try {
@@ -486,7 +486,7 @@ async function renderHall() {
         data = await response.json();
     } catch (e) {
         list.textContent = "";
-        list.appendChild(el("li", "mission-empty", "Onur Panosu şu an yüklenemedi."));
+        list.appendChild(el("li", "mission-empty", t("mission.hallFailed")));
         return;
     }
 
@@ -500,7 +500,7 @@ async function renderHall() {
     renderStarMap(people);
 
     if (!people.length) {
-        list.appendChild(el("li", "mission-empty", "Pano henüz boş — ilk sen ol!"));
+        list.appendChild(el("li", "mission-empty", t("mission.hallEmpty")));
         return;
     }
 
@@ -513,13 +513,13 @@ async function renderHall() {
         const who = el("div", "hall-who");
         who.append(
             el("span", "hall-name", person.name),
-            el("span", "hall-rank", rank.icon + " " + rank.title)
+            el("span", "hall-rank", rank.icon + " " + t(rank.key))
         );
 
         const stats = el("div", "hall-stats");
         stats.append(
             el("span", "hall-xp", (person.xp || 0) + " XP"),
-            el("span", "hall-accepted", (person.accepted || 0) + " kabul")
+            el("span", "hall-accepted", (person.accepted || 0) + " " + t("mission.accepted"))
         );
 
         item.append(place, who, stats);
@@ -534,14 +534,35 @@ async function renderHall() {
     });
 
     if (data.updated) {
-        cq("hall-updated").textContent = "Son güncelleme: " + data.updated;
+        cq("hall-updated").textContent = t("mission.updated", { d: data.updated });
     }
 }
 
 // ---------------------------------------------------------------------
 
+/* The hint carries inline <code>, so it is built rather than translated
+   as a flat string. */
+function renderHallHint() {
+    const box = cq("hall-hint");
+    if (!box) return;
+
+    box.textContent = "";
+    const parts = t("mission.hallHint").split(/\{[ab]\}/);
+    const xp = [XP_SUBMIT + " XP", XP_ACCEPTED + " XP"];
+
+    parts.forEach((chunk, i) => {
+        box.appendChild(document.createTextNode(chunk));
+        if (i < parts.length - 1) {
+            const strong = document.createElement("strong");
+            strong.textContent = xp[i];
+            box.appendChild(strong);
+        }
+    });
+}
+
 function renderAll() {
     cq("mission-name").value = profile.name || "";
+    renderHallHint();
     renderProgress();
     renderBadges();
     renderEntries();
@@ -608,6 +629,16 @@ if (!storeGet("ovid-seen-help")) {
     setTimeout(() => cq("help-open").classList.add("nudge"), 1200);
     cq("help-open").addEventListener("click", () => cq("help-open").classList.remove("nudge"), { once: true });
 }
+
+buildLanguagePicker("lang-mount");
+
+/* Everything the Mission Control draws itself has to be redrawn on a
+   language switch; the declarative markup is handled by i18n.js. */
+onLocaleChange(() => {
+    hallLoaded = false;
+    if (modal.classList.contains("open")) renderAll();
+    else renderHallHint();
+});
 
 /* The sky should already carry the contributors on first paint, not only
    once someone opens the Hall of Fame. */

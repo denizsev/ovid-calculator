@@ -2407,3 +2407,23 @@ a.icon-btn {
     text-decoration: none;
     flex-shrink: 0;
 }
+
+/* language picker sits with the header chips */
+.lang-select {
+    height: clamp(28px, 6vw, 34px);
+    padding: 0 clamp(6px, 1.6vw, 10px);
+    border-radius: 999px;
+    border: 1px solid rgba(159, 231, 255, 0.25);
+    background: var(--sci-bg);
+    color: var(--operator-color);
+    font-family: inherit;
+    font-size: clamp(0.6rem, 1.8vw, 0.72rem);
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.lang-select:focus-visible {
+    outline: 2px solid var(--operator-color);
+    outline-offset: 2px;
+}

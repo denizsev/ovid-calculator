@@ -77,7 +77,7 @@ function parseObject(text) {
     if (point) {
         const x = evalScalar(point[1]);
         const y = evalScalar(point[2]);
-        if (x === null || y === null) throw new Error("Nokta koordinatları okunamadı");
+        if (x === null || y === null) throw new Error(t("geo.errPoint"));
         return { kind: "point", x, y };
     }
 
@@ -87,7 +87,7 @@ function parseObject(text) {
         const shiftX = circle[1] ? evalScalar(circle[1]) : 0;
         const shiftY = circle[2] ? evalScalar(circle[2]) : 0;
         const rhs = evalScalar(circle[3]);
-        if (rhs === null || rhs < 0) throw new Error("Çember yarıçapı geçersiz");
+        if (rhs === null || rhs < 0) throw new Error(t("geo.errRadius"));
         // (x + s)^2 means the centre sits at -s
         return { kind: "circle", cx: -(shiftX || 0), cy: -(shiftY || 0), r: Math.sqrt(rhs) };
     }
@@ -96,7 +96,7 @@ function parseObject(text) {
     const vertical = body.match(/^x=(.+)$/);
     if (vertical) {
         const at = evalScalar(vertical[1]);
-        if (at === null) throw new Error("Dikey doğru okunamadı");
+        if (at === null) throw new Error(t("geo.errVertical"));
         return { kind: "vline", at };
     }
 
@@ -108,13 +108,13 @@ function parseObject(text) {
     if (!/x/.test(expr)) {
         // a constant is still a valid horizontal line
         const value = evalScalar(expr);
-        if (value === null) throw new Error("İfade anlaşılamadı");
+        if (value === null) throw new Error(t("geo.errExpression"));
         return { kind: "fn", expr, constant: value };
     }
 
     // prove it evaluates before accepting it
     if (sampleAt(expr, 1) === null && sampleAt(expr, 0.5) === null) {
-        throw new Error("İfade anlaşılamadı");
+        throw new Error(t("geo.errExpression"));
     }
 
     return { kind: "fn", expr };
@@ -336,8 +336,8 @@ function renderList() {
         swatch.type = "button";
         swatch.className = "obj-swatch";
         swatch.style.setProperty("--c", obj.colour);
-        swatch.title = obj.visible ? "Gizle" : "Göster";
-        swatch.setAttribute("aria-label", obj.label + " — " + (obj.visible ? "gizle" : "göster"));
+        swatch.title = obj.visible ? t("geo.hide") : t("geo.show");
+        swatch.setAttribute("aria-label", t(obj.visible ? "geo.hideLabel" : "geo.showLabel", { label: obj.label }));
         swatch.addEventListener("click", () => {
             obj.visible = !obj.visible;
             renderList();
@@ -350,14 +350,14 @@ function renderList() {
 
         const kind = document.createElement("span");
         kind.className = "obj-kind";
-        kind.textContent = ({ fn: "fonksiyon", point: "nokta", circle: "çember", vline: "doğru" })[obj.kind];
+        kind.textContent = t({ fn: "geo.kindFn", point: "geo.kindPoint", circle: "geo.kindCircle", vline: "geo.kindLine" }[obj.kind]);
 
         const remove = document.createElement("button");
         remove.type = "button";
         remove.className = "obj-remove";
         remove.textContent = "✕";
-        remove.title = "Sil";
-        remove.setAttribute("aria-label", obj.label + " — sil");
+        remove.title = t("mission.delete");
+        remove.setAttribute("aria-label", t("geo.deleteLabel", { label: obj.label }));
         remove.addEventListener("click", () => {
             objects = objects.filter(o => o.id !== obj.id);
             renderList();
@@ -374,7 +374,7 @@ function addObject(text) {
     try {
         parsed = parseObject(text);
     } catch (e) {
-        showError(e.message || "İfade anlaşılamadı");
+        showError(e.message || t("geo.errExpression"));
         return false;
     }
 
@@ -414,7 +414,7 @@ document.querySelectorAll(".sample").forEach(btn => {
 
 g("obj-clear").addEventListener("click", () => {
     if (!objects.length) return;
-    if (!confirm("Tüm nesneler silinecek. Emin misin?")) return;
+    if (!confirm(t("geo.confirmClear"))) return;
     objects = [];
     renderList();
     draw();
@@ -516,6 +516,45 @@ ro.observe(canvas);
 window.addEventListener("resize", resize);
 
 resize();
+
+/* The hint carries inline <code>, so it is assembled rather than injected. */
+function renderGeoHint() {
+    const box = g("obj-hint");
+    if (!box) return;
+
+    box.textContent = "";
+    const parts = t("geo.hint").split(/\{[ab]\}/);
+    const fills = [
+        () => { const s = document.createElement("strong"); s.textContent = t("geo.sameEngine"); return s; },
+        () => {
+            const span = document.createElement("span");
+            ["sin", "ln", "π", "^"].forEach((name, i) => {
+                if (i) span.appendChild(document.createTextNode(", "));
+                const code = document.createElement("code");
+                code.textContent = name;
+                span.appendChild(code);
+            });
+            return span;
+        }
+    ];
+
+    // the sentence orders the two slots differently per language
+    const order = t("geo.hint").indexOf("{b}") < t("geo.hint").indexOf("{a}") ? [0, 1] : [1, 0];
+
+    parts.forEach((chunk, i) => {
+        box.appendChild(document.createTextNode(chunk));
+        if (i < parts.length - 1) box.appendChild(fills[order[i]]());
+    });
+}
+
+buildLanguagePicker("lang-mount");
+renderGeoHint();
+
+onLocaleChange(() => {
+    renderGeoHint();
+    renderList();
+    draw();
+});
 
 // something on screen beats an empty plane and a blinking cursor
 ["y=sin(x)", "y=x^2/4-3", "(2,3)"].forEach(addObject);
