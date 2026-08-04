@@ -63,6 +63,19 @@ function renderExpression() {
     exprLine.textContent = "";
 
     tokens.forEach(token => {
+        // A typed digit run (has numStart/numEnd) can be dragged into a
+        // slider. π, e and geometry variables have no source position to
+        // rewrite — sliding "π" would not mean anything — so they render
+        // as plain, non-interactive text using their symbol for display.
+        if (token.type === "number" && token.symbol) {
+            const span = document.createElement("span");
+            let label = token.symbol;
+            if (token.unit) label += " " + token.unit;
+            span.textContent = label;
+            exprLine.appendChild(span);
+            return;
+        }
+
         if (token.type === "number") {
             const chip = document.createElement("button");
             chip.type = "button";
