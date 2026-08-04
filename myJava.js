@@ -75,8 +75,8 @@ function renderExpression() {
             if (token.unit) label += " " + token.unit;
 
             chip.textContent = label;
-            chip.title = "Kaydırıcıya çevirmek için tıkla";
-            chip.setAttribute("aria-label", label + " — kaydırıcı aç");
+            chip.title = t("key.copyResult");
+            chip.setAttribute("aria-label", label);
 
             chip.addEventListener("click", (event) => {
                 event.stopPropagation();
@@ -490,7 +490,7 @@ $("factorial").addEventListener("click", () => appendRaw("!"));
 // "±" only makes sense straight after a number, and only once per number
 $("uncert").addEventListener("click", () => {
     if (!/[\d.]$/.test(expression) || /±[\d.]*$/.test(expression)) {
-        showToast("Önce bir sayı girin");
+        showToast(t("toast.needNumberFirst"));
         return;
     }
     appendRaw("±");
@@ -525,7 +525,7 @@ function applyUnary(fn) {
 
     const result = fn(info.value);
     if (!isFinite(result) || Number.isNaN(result)) {
-        showMessage("Geçersiz işlem");
+        showMessage(t("msg.invalidOperation"));
         playErrorSound();
         expression = "0";
         return;
@@ -618,7 +618,7 @@ function commitResult(previous, result) {
     resultLine.classList.remove("preview");
     fitResult();
 
-    announce(previous + " eşittir " + formatted);
+    announce(t("msg.equals", { expr: previous, result: formatted }));
 
     lastResult = result.v;
     pushUndo();
@@ -670,21 +670,21 @@ function calculate() {
     try {
         result = evaluate(expression);
     } catch (e) {
-        showMessage(e.message || "Hata");
+        showMessage(e.message || t("msg.error"));
         playErrorSound();
         expression = "0";
         return;
     }
 
     if (!result || Number.isNaN(result.v)) {
-        showMessage("Tanımsız sonuç");
+        showMessage(t("msg.undefinedResult"));
         playErrorSound();
         expression = "0";
         return;
     }
 
     if (!isFinite(result.v)) {
-        showMessage("Sıfıra bölünemez");
+        showMessage(t("msg.divideByZero"));
         playErrorSound();
         expression = "0";
         return;
@@ -780,7 +780,7 @@ function setAngleMode(mode) {
 
 $("angle-toggle").addEventListener("click", () => {
     setAngleMode(angleMode === "DEG" ? "RAD" : "DEG");
-    showToast("Açı birimi: " + angleMode);
+    showToast(t("toast.angleMode", { mode: angleMode }));
 });
 
 setAngleMode(angleMode);
@@ -795,7 +795,7 @@ function setSound(on) {
 
 $("sound-toggle").addEventListener("click", () => {
     setSound(!soundOn);
-    showToast(soundOn ? "Ses açık" : "Ses kapalı");
+    showToast(t(soundOn ? "toast.soundOn" : "toast.soundOff"));
 });
 
 setSound(soundOn);
@@ -804,7 +804,7 @@ setSound(soundOn);
    "the buttons and text are too small". Cycles through three sizes. */
 const SIZE_STEPS = ["normal", "buyuk", "cokbuyuk"];
 const SIZE_LABELS = { normal: "A", buyuk: "A+", cokbuyuk: "A++" };
-const SIZE_TOASTS = { normal: "Normal boyut", buyuk: "Büyük boyut", cokbuyuk: "Çok büyük boyut" };
+const SIZE_TOASTS = { normal: "toast.sizeNormal", buyuk: "toast.sizeLarge", cokbuyuk: "toast.sizeXLarge" };
 
 let sizeMode = storeGet("ovid-size") || "normal";
 
@@ -821,7 +821,7 @@ function setSizeMode(mode) {
 $("size-toggle").addEventListener("click", () => {
     const next = SIZE_STEPS[(SIZE_STEPS.indexOf(sizeMode) + 1) % SIZE_STEPS.length];
     setSizeMode(next);
-    showToast(SIZE_TOASTS[sizeMode]);
+    showToast(t(SIZE_TOASTS[sizeMode]));
 });
 
 setSizeMode(sizeMode);
@@ -836,7 +836,7 @@ function setStepMode(on) {
 
 $("step-toggle").addEventListener("click", () => {
     setStepMode(!stepMode);
-    showToast(stepMode ? "Warp modu açık — adım adım" : "Warp modu kapalı");
+    showToast(t(stepMode ? "toast.stepOn" : "toast.stepOff"));
 });
 
 setStepMode(stepMode);
@@ -854,7 +854,7 @@ function setFractionMode(on) {
 
 $("fraction-toggle").addEventListener("click", () => {
     setFractionMode(!fractionMode);
-    showToast(fractionMode ? "Kesir modu açık — tam değer" : "Kesir modu kapalı — ondalık");
+    showToast(t(fractionMode ? "toast.fractionOn" : "toast.fractionOff"));
 });
 
 setFractionMode(fractionMode);
@@ -906,7 +906,7 @@ $("mplus").addEventListener("click", () => {
     if (value === null) return;
     memory += value;
     persistMemory();
-    showToast("Belleğe eklendi: " + formatNumber(memory));
+    showToast(t("toast.memoryAdded", { v: formatNumber(memory) }));
 });
 
 $("mminus").addEventListener("click", () => {
@@ -914,7 +914,7 @@ $("mminus").addEventListener("click", () => {
     if (value === null) return;
     memory -= value;
     persistMemory();
-    showToast("Bellekten çıkarıldı: " + formatNumber(memory));
+    showToast(t("toast.memorySubtracted", { v: formatNumber(memory) }));
 });
 
 $("mr").addEventListener("click", () => {
@@ -926,7 +926,7 @@ $("mr").addEventListener("click", () => {
 $("mc").addEventListener("click", () => {
     memory = 0;
     persistMemory();
-    showToast("Bellek temizlendi");
+    showToast(t("toast.memoryCleared"));
 });
 
 persistMemory();
@@ -953,7 +953,7 @@ function renderHistory() {
     if (!history.length) {
         const empty = document.createElement("li");
         empty.className = "panel-empty";
-        empty.textContent = "Henüz geçmiş yok";
+        empty.textContent = t("panel.historyEmpty");
         historyList.appendChild(empty);
         return;
     }
@@ -977,7 +977,7 @@ function renderHistory() {
             expression = item.reusable || item.result.replace(/\s/g, "");
             updateDisplay();
             closePanel();
-            showToast("Sonuç yüklendi");
+            showToast(t("toast.resultLoaded"));
         });
 
         historyList.appendChild(li);
@@ -987,15 +987,15 @@ function renderHistory() {
 // destructive and irreversible, so it asks first
 $("history-clear").addEventListener("click", () => {
     if (!history.length) {
-        showToast("Geçmiş zaten boş");
+        showToast(t("toast.historyEmpty"));
         return;
     }
-    if (!confirm("Tüm hesap geçmişi silinecek. Emin misin?")) return;
+    if (!confirm(t("toast.confirmHistory"))) return;
 
     history = [];
     persistHistory();
     renderHistory();
-    showToast("Geçmiş temizlendi");
+    showToast(t("toast.historyCleared"));
 });
 
 renderHistory();
@@ -1005,17 +1005,17 @@ renderHistory();
 // =====================================================================
 
 const CONSTANT_LIBRARY = [
-    { symbol: "c", name: "Işık hızı", value: 299792458, unit: "m/s" },
-    { symbol: "g", name: "Yerçekimi ivmesi", value: 9.80665, unit: "m/s²" },
-    { symbol: "G", name: "Evrensel çekim sabiti", value: 6.6743e-11, unit: "m³/kg·s²" },
-    { symbol: "h", name: "Planck sabiti", value: 6.62607015e-34, unit: "J·s" },
-    { symbol: "Nₐ", name: "Avogadro sayısı", value: 6.02214076e23, unit: "1/mol" },
-    { symbol: "AU", name: "Astronomik birim", value: 1.495978707e11, unit: "m" },
-    { symbol: "ly", name: "Işık yılı", value: 9.4607304725808e15, unit: "m" },
-    { symbol: "pc", name: "Parsek", value: 3.0856775814913673e16, unit: "m" },
-    { symbol: "M☉", name: "Güneş kütlesi", value: 1.98892e30, unit: "kg" },
-    { symbol: "R⊕", name: "Dünya yarıçapı", value: 6371000, unit: "m" },
-    { symbol: "φ", name: "Altın oran", value: 1.618033988749895, unit: "" }
+    { symbol: "c", key: "const.c", value: 299792458, unit: "m/s" },
+    { symbol: "g", key: "const.g", value: 9.80665, unit: "m/s²" },
+    { symbol: "G", key: "const.G", value: 6.6743e-11, unit: "m³/kg·s²" },
+    { symbol: "h", key: "const.h", value: 6.62607015e-34, unit: "J·s" },
+    { symbol: "Nₐ", key: "const.Na", value: 6.02214076e23, unit: "1/mol" },
+    { symbol: "AU", key: "const.AU", value: 1.495978707e11, unit: "m" },
+    { symbol: "ly", key: "const.ly", value: 9.4607304725808e15, unit: "m" },
+    { symbol: "pc", key: "const.pc", value: 3.0856775814913673e16, unit: "m" },
+    { symbol: "M☉", key: "const.Msun", value: 1.98892e30, unit: "kg" },
+    { symbol: "R⊕", key: "const.Rearth", value: 6371000, unit: "m" },
+    { symbol: "φ", key: "const.phi", value: 1.618033988749895, unit: "" }
 ];
 
 function renderConstants() {
@@ -1035,7 +1035,7 @@ function renderConstants() {
 
         const name = document.createElement("span");
         name.className = "constant-name";
-        name.textContent = c.name;
+        name.textContent = t(c.key);
 
         head.append(sym, name);
 
@@ -1048,7 +1048,7 @@ function renderConstants() {
         li.addEventListener("click", () => {
             appendRaw(String(c.value));
             closePanel();
-            showToast(c.symbol + " eklendi");
+            showToast(t("toast.constantAdded", { s: c.symbol }));
         });
 
         list.appendChild(li);
@@ -1062,10 +1062,10 @@ renderConstants();
 // =====================================================================
 
 const UNIT_GROUPS = [
-    { title: "Uzunluk", units: ["mm", "cm", "m", "km", "ft", "mi", "AU", "ly", "pc"] },
-    { title: "Kütle", units: ["mg", "g", "kg", "ton", "lb"] },
-    { title: "Zaman", units: ["ms", "s", "dk", "sa", "gün", "yıl"] },
-    { title: "Veri", units: ["B", "KB", "MB", "GB", "TB"] }
+    { key: "tools.length", units: ["mm", "cm", "m", "km", "ft", "mi", "AU", "ly", "pc"] },
+    { key: "tools.mass", units: ["mg", "g", "kg", "t", "lb"] },
+    { key: "tools.time", units: ["ms", "s", "min", "h", "day", "yr"] },
+    { key: "tools.data", units: ["B", "KB", "MB", "GB", "TB"] }
 ];
 
 function renderUnitPalette() {
@@ -1078,7 +1078,7 @@ function renderUnitPalette() {
 
         const title = document.createElement("div");
         title.className = "unit-group-title";
-        title.textContent = group.title;
+        title.textContent = t(group.key);
 
         const row = document.createElement("div");
         row.className = "unit-chips";
@@ -1091,7 +1091,7 @@ function renderUnitPalette() {
 
             chip.addEventListener("click", () => {
                 if (!/[\d.]$/.test(expression)) {
-                    showToast("Önce bir sayı girin");
+                    showToast(t("toast.needNumberFirst"));
                     return;
                 }
                 appendRaw(unit);
@@ -1112,37 +1112,39 @@ renderUnitPalette();
 // UNIT CONVERTER
 // =====================================================================
 
+/* Categories use stable ids so the data never depends on the display
+   language; the label comes from the dictionary at render time. */
 const CONVERTER_UNITS = {
-    "Uzunluk": {
+    length: {
         mm: 0.001, cm: 0.01, m: 1, km: 1000,
-        inç: 0.0254, ft: 0.3048, mil: 1609.344,
-        "deniz mili": 1852, AU: 1.495978707e11, "ışık yılı": 9.4607304725808e15
+        in: 0.0254, ft: 0.3048, mi: 1609.344,
+        "nmi": 1852, AU: 1.495978707e11, ly: 9.4607304725808e15
     },
-    "Kütle": {
-        mg: 1e-6, g: 0.001, kg: 1, ton: 1000,
-        ons: 0.028349523125, lb: 0.45359237, "Dünya kütlesi": 5.9722e24
+    mass: {
+        mg: 1e-6, g: 0.001, kg: 1, t: 1000,
+        oz: 0.028349523125, lb: 0.45359237, "M⊕": 5.9722e24
     },
-    "Zaman": {
-        ms: 0.001, saniye: 1, dakika: 60, saat: 3600,
-        gün: 86400, hafta: 604800, yıl: 31557600
+    time: {
+        ms: 0.001, s: 1, min: 60, h: 3600,
+        day: 86400, week: 604800, yr: 31557600
     },
-    "Hız": {
-        "m/s": 1, "km/h": 0.277777778, "mph": 0.44704,
-        knot: 0.514444444, "ışık hızı": 299792458
+    speed: {
+        "m/s": 1, "km/h": 0.277777778, mph: 0.44704,
+        knot: 0.514444444, c: 299792458
     },
-    "Veri": {
-        bit: 0.125, bayt: 1, KB: 1024, MB: 1048576,
+    data: {
+        bit: 0.125, B: 1, KB: 1024, MB: 1048576,
         GB: 1073741824, TB: 1099511627776
     },
-    "Alan": {
+    area: {
         "m²": 1, "km²": 1e6, "cm²": 1e-4,
-        hektar: 10000, dönüm: 1000, "ft²": 0.09290304
+        ha: 10000, acre: 4046.8564224, "ft²": 0.09290304
     },
-    "Hacim": {
-        ml: 0.001, litre: 1, "m³": 1000,
-        galon: 3.785411784, "fincan": 0.2365882365
+    volume: {
+        ml: 0.001, L: 1, "m³": 1000,
+        gal: 3.785411784, cup: 0.2365882365
     },
-    "Sıcaklık": null // handled separately: offsets, not ratios
+    temperature: null // handled separately: offsets, not ratios
 };
 
 const TEMP_UNITS = ["°C", "°F", "K"];
@@ -1165,15 +1167,24 @@ const toSelect = $("convert-to");
 const convertInput = $("convert-input");
 const convertResult = $("convert-result");
 
-Object.keys(CONVERTER_UNITS).forEach(cat => {
-    const option = document.createElement("option");
-    option.value = cat;
-    option.textContent = cat;
-    categorySelect.appendChild(option);
-});
+function renderCategories() {
+    const chosen = categorySelect.value;
+    categorySelect.textContent = "";
+
+    Object.keys(CONVERTER_UNITS).forEach(cat => {
+        const option = document.createElement("option");
+        option.value = cat;
+        option.textContent = t("tools." + cat);
+        categorySelect.appendChild(option);
+    });
+
+    if (chosen) categorySelect.value = chosen;
+}
+
+renderCategories();
 
 function unitsFor(category) {
-    return category === "Sıcaklık" ? TEMP_UNITS : Object.keys(CONVERTER_UNITS[category]);
+    return category === "temperature" ? TEMP_UNITS : Object.keys(CONVERTER_UNITS[category]);
 }
 
 function populateUnits() {
@@ -1200,7 +1211,7 @@ function convertValue() {
 
     const category = categorySelect.value;
 
-    if (category === "Sıcaklık") {
+    if (category === "temperature") {
         return fromCelsius(toCelsius(value, fromSelect.value), toSelect.value);
     }
 
@@ -1233,7 +1244,7 @@ $("convert-use").addEventListener("click", () => {
     expression = String(Number(result.toPrecision(12)));
     updateDisplay();
     closePanel();
-    showToast("Sonuç aktarıldı");
+    showToast(t("toast.resultSent"));
 });
 
 populateUnits();
@@ -1309,11 +1320,11 @@ function renderNumberTheory() {
     const n = Number($("nt-input").value);
 
     if (!Number.isInteger(n) || n < 1) {
-        renderRow(box, "Uyarı", "1 veya daha büyük bir tam sayı gir");
+        renderRow(box, t("tools.warning"), t("tools.needInteger"));
         return;
     }
     if (n > NT_LIMIT) {
-        renderRow(box, "Uyarı", "Bu araç 10^12'ye kadar çalışır");
+        renderRow(box, t("tools.warning"), t("tools.tooLarge"));
         return;
     }
 
@@ -1321,20 +1332,20 @@ function renderNumberTheory() {
     const groups = groupFactors(factors);
 
     const notation = n === 1
-        ? "1 (asal çarpanı yok)"
+        ? t("tools.noPrimeFactors")
         : groups.map(g => g.exp === 1 ? g.base : g.base + "^" + g.exp).join(" × ");
 
-    renderRow(box, "Asal çarpanlar", notation);
-    renderRow(box, "Asal mı?", factors.length === 1 && n > 1 ? "Evet" : "Hayır");
+    renderRow(box, t("tools.primeFactors"), notation);
+    renderRow(box, t("tools.isPrime"), factors.length === 1 && n > 1 ? t("tools.yes") : t("tools.no"));
 
     const divisors = divisorsOf(n);
-    renderRow(box, "Bölen sayısı", String(divisors.length));
-    renderRow(box, "Bölenler toplamı", String(divisors.reduce((s, d) => s + d, 0)));
+    renderRow(box, t("tools.divisorCount"), String(divisors.length));
+    renderRow(box, t("tools.divisorSum"), String(divisors.reduce((s, d) => s + d, 0)));
 
     const shown = divisors.length > 24
         ? divisors.slice(0, 24).join(", ") + " …"
         : divisors.join(", ");
-    renderRow(box, "Bölenler", shown);
+    renderRow(box, t("tools.divisors"), shown);
 }
 
 function renderNumberPair() {
@@ -1347,9 +1358,9 @@ function renderNumberPair() {
     if (!Number.isInteger(a) || !Number.isInteger(b) || a < 1 || b < 1) return;
     if (a > NT_LIMIT || b > NT_LIMIT) return;
 
-    renderRow(box, "OBEB (" + a + ", " + b + ")", String(gcdOf(a, b)));
-    renderRow(box, "OKEK (" + a + ", " + b + ")", String(lcmOf(a, b)));
-    renderRow(box, "Aralarında asal mı?", gcdOf(a, b) === 1 ? "Evet" : "Hayır");
+    renderRow(box, t("tools.gcd") + " (" + a + ", " + b + ")", String(gcdOf(a, b)));
+    renderRow(box, t("tools.lcm") + " (" + a + ", " + b + ")", String(lcmOf(a, b)));
+    renderRow(box, t("tools.coprime"), gcdOf(a, b) === 1 ? t("tools.yes") : t("tools.no"));
 }
 
 ["nt-input", "nt-second"].forEach(id => {
@@ -1375,7 +1386,7 @@ function renderBases() {
 
     const allowed = "0123456789abcdefghijklmnopqrstuvwxyz".slice(0, from);
     if (!digits.length || [...digits.toLowerCase()].some(c => !allowed.includes(c))) {
-        renderRow(box, "Uyarı", from + " tabanında geçersiz bir sayı");
+        renderRow(box, t("tools.warning"), t("tools.invalidForBase", { n: from }));
         return;
     }
 
@@ -1386,19 +1397,19 @@ function renderBases() {
             0n
         );
     } catch (e) {
-        renderRow(box, "Uyarı", "Sayı okunamadı");
+        renderRow(box, t("tools.warning"), t("tools.unreadable"));
         return;
     }
 
     if (negative) value = -value;
 
-    renderRow(box, "Onluk (10)", value.toString(10));
-    renderRow(box, "İkilik (2)", value.toString(2));
-    renderRow(box, "Sekizlik (8)", value.toString(8));
-    renderRow(box, "Onaltılık (16)", value.toString(16).toUpperCase());
+    renderRow(box, t("tools.decimal"), value.toString(10));
+    renderRow(box, t("tools.binary"), value.toString(2));
+    renderRow(box, t("tools.octal"), value.toString(8));
+    renderRow(box, t("tools.hex"), value.toString(16).toUpperCase());
 
     if (value >= 0n && value <= 0xffffffffn) {
-        renderRow(box, "Bit sayısı", value.toString(2).length + " bit");
+        renderRow(box, t("tools.bits"), value.toString(2).length);
     }
 }
 
@@ -1418,7 +1429,7 @@ function renderStats() {
         .filter(Number.isFinite);
 
     if (!numbers.length) {
-        renderRow(box, "Uyarı", "En az bir sayı gir");
+        renderRow(box, t("tools.warning"), t("tools.needNumber"));
         return;
     }
 
@@ -1443,20 +1454,20 @@ function renderStats() {
     const popVar = squaredError / n;
     const sampleVar = n > 1 ? squaredError / (n - 1) : null;
 
-    renderRow(box, "Adet", String(n));
-    renderRow(box, "Toplam", formatNumber(sum));
-    renderRow(box, "Ortalama", formatNumber(mean));
-    renderRow(box, "Medyan", formatNumber(median));
-    renderRow(box, "Mod", modes.length ? modes.join(", ") : "yok");
-    renderRow(box, "En küçük", formatNumber(sorted[0]));
-    renderRow(box, "En büyük", formatNumber(sorted[n - 1]));
-    renderRow(box, "Açıklık", formatNumber(sorted[n - 1] - sorted[0]));
-    renderRow(box, "Varyans (yığın)", formatNumber(popVar));
-    renderRow(box, "Std sapma (yığın)", formatNumber(Math.sqrt(popVar)));
+    renderRow(box, t("tools.count"), String(n));
+    renderRow(box, t("tools.sum"), formatNumber(sum));
+    renderRow(box, t("tools.mean"), formatNumber(mean));
+    renderRow(box, t("tools.median"), formatNumber(median));
+    renderRow(box, t("tools.mode"), modes.length ? modes.join(", ") : t("tools.none"));
+    renderRow(box, t("tools.min"), formatNumber(sorted[0]));
+    renderRow(box, t("tools.max"), formatNumber(sorted[n - 1]));
+    renderRow(box, t("tools.range"), formatNumber(sorted[n - 1] - sorted[0]));
+    renderRow(box, t("tools.varPop"), formatNumber(popVar));
+    renderRow(box, t("tools.sdPop"), formatNumber(Math.sqrt(popVar)));
 
     if (sampleVar !== null) {
-        renderRow(box, "Varyans (örneklem)", formatNumber(sampleVar));
-        renderRow(box, "Std sapma (örneklem)", formatNumber(Math.sqrt(sampleVar)));
+        renderRow(box, t("tools.varSample"), formatNumber(sampleVar));
+        renderRow(box, t("tools.sdSample"), formatNumber(Math.sqrt(sampleVar)));
     }
 }
 
@@ -1466,6 +1477,43 @@ renderNumberTheory();
 renderNumberPair();
 renderBases();
 renderStats();
+
+/* The units hint contains inline <code> samples, so it is assembled from
+   the translated sentence rather than injected as HTML. */
+function renderUnitsHint() {
+    const box = $("units-hint");
+    if (!box) return;
+
+    box.textContent = "";
+    const parts = t("panel.unitsHint").split(/\{[ab]\}/);
+    const samples = ["5 km + 300 m", "100 km / 2 h"];
+
+    parts.forEach((chunk, i) => {
+        box.appendChild(document.createTextNode(chunk));
+        if (i < parts.length - 1) {
+            const code = document.createElement("code");
+            code.textContent = samples[i];
+            box.appendChild(code);
+        }
+    });
+}
+
+renderUnitsHint();
+
+/* Redraw everything this file owns when the language changes. */
+onLocaleChange(() => {
+    renderUnitsHint();
+    renderCategories();
+    renderConstants();
+    renderUnitPalette();
+    renderHistory();
+    populateUnits();
+    renderNumberTheory();
+    renderNumberPair();
+    renderBases();
+    renderStats();
+    updateDisplay();
+});
 
 // =====================================================================
 // SIDE PANEL + TABS
@@ -1510,9 +1558,9 @@ resultLine.addEventListener("click", async () => {
     const text = resultLine.textContent.replace(/\s/g, "");
     try {
         await navigator.clipboard.writeText(text);
-        showToast("Kopyalandı: " + text);
+        showToast(t("toast.copied", { v: text }));
     } catch (e) {
-        showToast("Kopyalanamadı");
+        showToast(t("toast.copyFailed"));
     }
 });
 

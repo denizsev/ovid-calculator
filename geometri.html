@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Ovid Analitik Geometri — fonksiyon, nokta ve çemberleri koordinat düzleminde çiz. Hesap makinesiyle aynı motoru kullanır.">
+    <meta name="description" data-i18n="geo.description" content="Ovid Analytic Geometry — plot functions, points and circles on the coordinate plane. Uses the same engine as the calculator.">
     <meta name="theme-color" content="#05070d">
-    <title>Ovid — Analitik Geometri</title>
+    <title data-i18n="geo.pageTitle">Ovid — Analytic Geometry</title>
     <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,36 +30,34 @@
 </div>
 
 <header class="app-header">
-    <h1 class="app-title">OVID · ANALİTİK GEOMETRİ</h1>
+    <h1 class="app-title" data-i18n="geo.title">OVID · ANALYTIC GEOMETRY</h1>
 
     <div class="header-tools">
-        <a class="chip" href="index.html">← Hesap makinesi</a>
-        <button id="zoom-out" class="icon-btn" type="button" aria-label="Uzaklaş" title="Uzaklaş">−</button>
-        <button id="zoom-in" class="icon-btn" type="button" aria-label="Yakınlaş" title="Yakınlaş">+</button>
-        <button id="zoom-reset" class="chip" type="button" title="Görünümü sıfırla">Sıfırla</button>
+        <span id="lang-mount"></span>
+        <a class="chip" href="index.html" data-i18n="geo.backToCalc">← Calculator</a>
+        <button id="zoom-out" class="icon-btn" type="button" aria-label="Zoom out" data-i18n-aria-label="geo.zoomOut" title="Zoom out" data-i18n-title="geo.zoomOut">−</button>
+        <button id="zoom-in" class="icon-btn" type="button" aria-label="Zoom in" data-i18n-aria-label="geo.zoomIn" title="Zoom in" data-i18n-title="geo.zoomIn">+</button>
+        <button id="zoom-reset" class="chip" type="button" title="Reset the view" data-i18n-title="geo.resetTitle" data-i18n="geo.reset">Reset</button>
     </div>
 </header>
 
 <main class="geo-main">
 
-    <!-- NESNE LİSTESİ -->
+    <!-- OBJECT LIST -->
     <aside class="geo-side">
         <form id="obj-form" autocomplete="off">
             <label class="field">
-                <span>İfade ekle</span>
+                <span data-i18n="geo.addExpression">Add an expression</span>
                 <input id="obj-input" type="text" spellcheck="false"
                        placeholder="y = sin(x)   ·   (2,3)   ·   x^2+y^2=9"
                        aria-describedby="obj-hint">
             </label>
-            <button type="submit" class="mission-submit">Düzleme ekle</button>
+            <button type="submit" class="mission-submit" data-i18n="geo.addToPlane">Add to the plane</button>
         </form>
 
         <div id="obj-error" class="geo-error" role="status" aria-live="polite"></div>
 
-        <p class="panel-hint" id="obj-hint">
-            Hesap makinesiyle <strong>aynı motor</strong>: <code>sin</code>, <code>ln</code>,
-            <code>π</code>, <code>^</code> ve parantezler burada da geçerli.
-        </p>
+        <p class="panel-hint" id="obj-hint"></p>
 
         <div class="geo-samples">
             <button class="sample" type="button" data-expr="y=sin(x)">y = sin(x)</button>
@@ -71,25 +69,26 @@
         </div>
 
         <div class="panel-head">
-            <span>Nesneler</span>
-            <button id="obj-clear" class="text-btn" type="button">Temizle</button>
+            <span data-i18n="geo.objects">Objects</span>
+            <button id="obj-clear" class="text-btn" type="button" data-i18n="panel.clear">Clear</button>
         </div>
 
         <ul id="obj-list" class="obj-list"></ul>
-        <p id="obj-empty" class="panel-empty" hidden>Henüz nesne yok.</p>
+        <p id="obj-empty" class="panel-empty" hidden data-i18n="geo.noObjects">No objects yet.</p>
     </aside>
 
-    <!-- DÜZLEM -->
+    <!-- PLANE -->
     <section class="geo-plane">
         <canvas id="plane" tabindex="0"
-                aria-label="Koordinat düzlemi. Ok tuşlarıyla kaydır, artı ve eksi ile yakınlaş."></canvas>
+                aria-label="Coordinate plane. Pan with the arrow keys, zoom with plus and minus." data-i18n-aria-label="geo.planeLabel"></canvas>
         <div id="readout" class="geo-readout" aria-live="off"></div>
-        <div class="geo-hint">Sürükle · tekerlek ile yakınlaş · ok tuşları</div>
+        <div class="geo-hint" data-i18n="geo.controls">Drag · scroll to zoom · arrow keys</div>
     </section>
 
 </main>
 
 <script src="engine.js"></script>
+<script src="i18n.js"></script>
 <script src="geometri.js"></script>
 </body>
 </html>
