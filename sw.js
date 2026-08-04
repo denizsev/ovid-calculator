@@ -2,13 +2,16 @@
    The whole app is now a few hundred KB — the background is drawn rather
    than downloaded — so the entire shell is cached and it runs fully offline. */
 
-const CACHE = "ovid-shell-v7";
+const CACHE = "ovid-shell-v8";
 
 const SHELL = [
     "./",
     "./index.html",
     "./geometri.html",
     "./geometri.js",
+    "./privacy.html",
+    "./privacy.js",
+    "./fonts/orbitron-latin.woff2",
     "./style.css",
     "./i18n.js",
     "./engine.js",
