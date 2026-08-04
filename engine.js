@@ -616,11 +616,14 @@ function tokenize(input) {
             } else if (name === "mod") {
                 tokens.push({ type: "operator", value: "mod" });
             } else if (CONSTANTS[name] !== undefined) {
-                // π and e are irrational: no exact rational form exists
-                tokens.push({ type: "number", value: CONSTANTS[name], uncert: 0, unit: null, raw: null });
+                // π and e are irrational: no exact rational form exists (raw
+                // stays null so ratFromDecimal() below leaves it inexact).
+                // `symbol` is the display-only original name, so the
+                // expression line can still show "π" instead of "3.14159…".
+                tokens.push({ type: "number", value: CONSTANTS[name], uncert: 0, unit: null, raw: null, symbol: name });
             } else if (name in VARIABLES) {
                 // a bound variable is a plain float: no exact form to preserve
-                tokens.push({ type: "number", value: VARIABLES[name], uncert: 0, unit: null, raw: null });
+                tokens.push({ type: "number", value: VARIABLES[name], uncert: 0, unit: null, raw: null, symbol: name });
             } else {
                 throw new Error(t("err.unknownToken") + name);
             }
