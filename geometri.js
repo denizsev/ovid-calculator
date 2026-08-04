@@ -427,11 +427,39 @@ g("obj-clear").addEventListener("click", () => {
 let dragging = false;
 let dragFrom = null;
 
-canvas.addEventListener("pointerdown", event => {
+/* Multiple fingers are tracked by pointer id, not just "the last one that
+   moved" — with a single shared dragFrom, a second finger touching down
+   (the start of a pinch) overwrote the first finger's anchor and both
+   pointers' moves fought over it, which is what made panning feel broken
+   as soon as a pinch began. */
+const pointers = new Map();     // pointerId -> {x, y} in client coordinates
+let pinchDist = null;           // previous two-finger distance, client px
+let pinchMid = null;            // previous two-finger midpoint, client coords
+
+function pinchPoints() {
+    const [a, b] = [...pointers.values()];
+    return {
+        dist: Math.hypot(b.x - a.x, b.y - a.y),
+        mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+    };
+}
+
+function beginPan(x, y) {
     dragging = true;
-    dragFrom = { x: event.clientX, y: event.clientY, cx: view.cx, cy: view.cy };
+    dragFrom = { x, y, cx: view.cx, cy: view.cy };
+}
+
+canvas.addEventListener("pointerdown", event => {
     canvas.setPointerCapture(event.pointerId);
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     canvas.classList.add("grabbing");
+
+    if (pointers.size === 1) {
+        beginPan(event.clientX, event.clientY);
+    } else if (pointers.size === 2) {
+        dragging = false;               // pinch takes over from single-finger pan
+        ({ dist: pinchDist, mid: pinchMid } = pinchPoints());
+    }
 });
 
 canvas.addEventListener("pointermove", event => {
@@ -440,6 +468,30 @@ canvas.addEventListener("pointermove", event => {
     const wy = toWorldY(event.clientY - rect.top);
     readoutEl.textContent = `x ${formatTick(wx, view.scale)}   y ${formatTick(wy, view.scale)}`;
 
+    if (!pointers.has(event.pointerId)) return;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (pointers.size >= 2) {
+        const { dist, mid } = pinchPoints();
+
+        // whatever world point sat under the old midpoint must land back
+        // under the new one — that's what makes pan and zoom track the
+        // fingers together instead of the plane sliding out from under them
+        const oldLocal = { x: pinchMid.x - rect.left, y: pinchMid.y - rect.top };
+        const newLocal = { x: mid.x - rect.left, y: mid.y - rect.top };
+        const anchor = { x: toWorldX(oldLocal.x), y: toWorldY(oldLocal.y) };
+
+        const factor = pinchDist > 0 ? pinchDist / dist : 1;
+        view.scale = Math.min(1e6, Math.max(1e-9, view.scale * factor));
+        view.cx = anchor.x - (newLocal.x - W / 2) * view.scale;
+        view.cy = anchor.y + (newLocal.y - H / 2) * view.scale;
+
+        pinchDist = dist;
+        pinchMid = mid;
+        draw();
+        return;
+    }
+
     if (!dragging || !dragFrom) return;
 
     view.cx = dragFrom.cx - (event.clientX - dragFrom.x) * view.scale;
@@ -447,17 +499,35 @@ canvas.addEventListener("pointermove", event => {
     draw();
 });
 
-function endDrag(event) {
-    dragging = false;
-    dragFrom = null;
-    canvas.classList.remove("grabbing");
-    if (event && event.pointerId !== undefined && canvas.hasPointerCapture(event.pointerId)) {
-        canvas.releasePointerCapture(event.pointerId);
+function endPointer(event) {
+    if (event && event.pointerId !== undefined) {
+        pointers.delete(event.pointerId);
+        if (canvas.hasPointerCapture(event.pointerId)) {
+            canvas.releasePointerCapture(event.pointerId);
+        }
+    }
+
+    if (pointers.size === 2) {
+        ({ dist: pinchDist, mid: pinchMid } = pinchPoints());
+        dragging = false;
+    } else if (pointers.size === 1) {
+        // one finger lifted mid-pinch: resume panning from where the
+        // remaining finger already is, instead of jumping to it
+        const [remaining] = [...pointers.values()];
+        pinchDist = null;
+        pinchMid = null;
+        beginPan(remaining.x, remaining.y);
+    } else {
+        dragging = false;
+        dragFrom = null;
+        pinchDist = null;
+        pinchMid = null;
+        canvas.classList.remove("grabbing");
     }
 }
 
-canvas.addEventListener("pointerup", endDrag);
-canvas.addEventListener("pointercancel", endDrag);
+canvas.addEventListener("pointerup", endPointer);
+canvas.addEventListener("pointercancel", endPointer);
 canvas.addEventListener("pointerleave", () => { readoutEl.textContent = ""; });
 
 /* Zoom about the cursor, so the point under the pointer stays put */
