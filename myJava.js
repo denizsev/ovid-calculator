@@ -1,5 +1,5 @@
 /* =====================================================================
-   OVID CALCULATOR — ARAYÜZ
+   OVID CALCULATOR — UI
 
    The expression engine lives in engine.js; this file wires it to the
    keypad, display, panels and keyboard.
@@ -802,17 +802,20 @@ setSound(soundOn);
 
 /* Answers the most common accessibility complaint about calculators:
    "the buttons and text are too small". Cycles through three sizes. */
-const SIZE_STEPS = ["normal", "buyuk", "cokbuyuk"];
-const SIZE_LABELS = { normal: "A", buyuk: "A+", cokbuyuk: "A++" };
-const SIZE_TOASTS = { normal: "toast.sizeNormal", buyuk: "toast.sizeLarge", cokbuyuk: "toast.sizeXLarge" };
+const SIZE_STEPS = ["normal", "large", "xlarge"];
+const SIZE_LABELS = { normal: "A", large: "A+", xlarge: "A++" };
+const SIZE_TOASTS = { normal: "toast.sizeNormal", large: "toast.sizeLarge", xlarge: "toast.sizeXLarge" };
 
 let sizeMode = storeGet("ovid-size") || "normal";
+// a value from before the internal names were translated to English —
+// treat it the same as no saved preference rather than breaking
+if (!SIZE_STEPS.includes(sizeMode)) sizeMode = "normal";
 
 function setSizeMode(mode) {
     sizeMode = SIZE_STEPS.includes(mode) ? mode : "normal";
     storeSet("ovid-size", sizeMode);
 
-    document.body.classList.remove("size-buyuk", "size-cokbuyuk");
+    document.body.classList.remove("size-large", "size-xlarge");
     if (sizeMode !== "normal") document.body.classList.add("size-" + sizeMode);
 
     $("size-toggle").textContent = SIZE_LABELS[sizeMode];
@@ -1250,7 +1253,7 @@ $("convert-use").addEventListener("click", () => {
 populateUnits();
 
 // =====================================================================
-// ARAÇLAR — number theory, base conversion, list statistics
+// TOOLS — number theory, base conversion, list statistics
 // =====================================================================
 
 const NT_LIMIT = 1e12; // trial division stays instant below this

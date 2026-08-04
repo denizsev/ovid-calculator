@@ -435,6 +435,11 @@ function syncSettings() {
 }
 
 function openSettings() {
+    // Some entry points (the privacy page's own header button) don't close
+    // the banner first — closing it here too means the two can never stack,
+    // whichever one the visitor reaches this from.
+    if (banner) closeBanner();
+
     if (!settings) buildSettings();
     lastFocus = document.activeElement;
 

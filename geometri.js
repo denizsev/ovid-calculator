@@ -1,5 +1,5 @@
 /* =====================================================================
-   OVID — ANALİTİK GEOMETRİ
+   OVID — ANALYTIC GEOMETRY
 
    The interaction model is the one every graphing tool in this category
    shares: a list of objects on one side, a plane on the other, linked so
