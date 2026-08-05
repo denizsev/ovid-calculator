@@ -2339,12 +2339,9 @@ function detectLocale() {
     const saved = storeGet("ovid-lang");
     if (saved && STRINGS[saved]) return saved;
 
-    // first visit: follow the browser, but only into a locale we actually have
-    for (const tag of (navigator.languages || [navigator.language || ""])) {
-        const base = String(tag).toLowerCase().split("-")[0];
-        if (STRINGS[base]) return base;
-    }
-
+    // first visit always lands in English, regardless of the browser's
+    // language — the switcher is one tap away for anyone who wants another
+    // of the six locales, but the entry language is not guessed
     return DEFAULT_LOCALE;
 }
 
