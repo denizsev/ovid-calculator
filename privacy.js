@@ -372,16 +372,7 @@ function buildSettings() {
 
             '<div class="privacy-rows">' + rows + '</div>' +
 
-            '<div class="privacy-footprint">' +
-                '<span data-i18n="privacy.footprint"></span> ' +
-                '<strong id="privacy-bytes"></strong>' +
-            '</div>' +
-
-            '<div class="privacy-actions">' +
-                '<button type="button" class="text-btn" id="privacy-export" data-i18n="privacy.export"></button>' +
-                '<button type="button" class="text-btn privacy-danger" id="privacy-erase" data-i18n="privacy.erase"></button>' +
-                '<a class="text-btn" href="privacy.html" data-i18n="privacy.readFull"></a>' +
-            '</div>' +
+            '<a class="text-btn" href="privacy.html" data-i18n="privacy.readFull"></a>' +
 
             '<button type="button" class="mission-submit" id="privacy-save" data-i18n="privacy.save"></button>' +
         '</div>';
@@ -391,11 +382,6 @@ function buildSettings() {
 
     settings.querySelector("#privacy-close").addEventListener("click", closeSettings);
     settings.querySelector("#privacy-save").addEventListener("click", saveSettings);
-    settings.querySelector("#privacy-export").addEventListener("click", exportData);
-
-    settings.querySelector("#privacy-erase").addEventListener("click", () => {
-        if (window.confirm(t("privacy.eraseConfirm"))) eraseEverything();
-    });
 
     settings.addEventListener("click", (event) => {
         if (event.target === settings) closeSettings();
@@ -430,8 +416,6 @@ function syncSettings() {
     settings.querySelectorAll("input[data-group]").forEach(box => {
         box.checked = consent[box.dataset.group] === true;
     });
-    settings.querySelector("#privacy-bytes").textContent =
-        t("privacy.bytes", { n: storedByteCount() });
 }
 
 function openSettings() {
@@ -543,6 +527,26 @@ function renderInventory() {
     mount.innerHTML = head + "<tbody>" + body + "</tbody>";
 }
 
+/* Export and erase live only on the full notice page, not in the quick
+   consent panel — a cookie preference popup that also offers to nuke your
+   history and memory is not a pattern anyone recognises. */
+function renderDataControls() {
+    const bytes = document.getElementById("privacy-bytes");
+    if (bytes) bytes.textContent = t("privacy.bytes", { n: storedByteCount() });
+}
+
+function wireDataControls() {
+    const exportBtn = document.getElementById("privacy-export");
+    if (exportBtn) exportBtn.addEventListener("click", exportData);
+
+    const eraseBtn = document.getElementById("privacy-erase");
+    if (eraseBtn) {
+        eraseBtn.addEventListener("click", () => {
+            if (window.confirm(t("privacy.eraseConfirm"))) eraseEverything();
+        });
+    }
+}
+
 // ---------------------------------------------------------------------
 // BOOT
 // ---------------------------------------------------------------------
@@ -550,6 +554,8 @@ function renderInventory() {
 function initPrivacy() {
     buildPrivacyLink();
     renderInventory();
+    renderDataControls();
+    wireDataControls();
 
     const opener = document.getElementById("privacy-open");
     if (opener) opener.addEventListener("click", openSettings);
@@ -571,5 +577,6 @@ if (typeof onLocaleChange === "function") {
         if (settings) { applyTranslations(settings); syncSettings(); }
         buildPrivacyLink();
         renderInventory();
+        renderDataControls();
     });
 }
