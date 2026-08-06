@@ -410,8 +410,8 @@ const STRINGS = {
 
     // ---------------------------------------------------------------
     de: {
-        "app.title": "OVID RECHNER",
-        "app.pageTitle": "Ovid Rechner",
+        "app.title": "OVID CALCULATOR",
+        "app.pageTitle": "Ovid Calculator",
         "privacy.bannerTitle": "Deine Daten bleiben auf deinem Gerät",
         "privacy.bannerText": "Ovid hat keinen Server, keine Analyse und keine Werbung. Nichts, was du eingibst, wird irgendwohin gesendet. Damit Einstellungen, Verlauf und Speicher zwischen Besuchen erhalten bleiben, muss die App ein wenig im Browser ablegen — das entscheidest du.",
         "privacy.bannerNote": "Keine Dritten · kein Tracking · keine Profile",
@@ -794,8 +794,8 @@ const STRINGS = {
 
     // ---------------------------------------------------------------
     tr: {
-        "app.title": "OVID HESAP MAKİNESİ",
-        "app.pageTitle": "Ovid Hesap Makinesi",
+        "app.title": "OVID CALCULATOR",
+        "app.pageTitle": "Ovid Calculator",
         "privacy.bannerTitle": "Verilerin cihazından çıkmıyor",
         "privacy.bannerText": "Ovid'in sunucusu, analitiği ve reklamı yok. Yazdığın hiçbir şey hiçbir yere gönderilmiyor. Ayarlarının, geçmişinin ve hafızanın ziyaretler arasında kalması için uygulamanın tarayıcına biraz veri yazması gerekiyor — o kısım senin kararın.",
         "privacy.bannerNote": "Üçüncü taraf yok · takip yok · profil yok",
@@ -1178,8 +1178,8 @@ const STRINGS = {
 
     // ---------------------------------------------------------------
     fr: {
-        "app.title": "CALCULATRICE OVID",
-        "app.pageTitle": "Calculatrice Ovid",
+        "app.title": "OVID CALCULATOR",
+        "app.pageTitle": "Ovid Calculator",
         "privacy.bannerTitle": "Vos données restent sur votre appareil",
         "privacy.bannerText": "Ovid n'a ni serveur, ni analytique, ni publicité. Rien de ce que vous saisissez n'est envoyé où que ce soit. Pour retrouver vos réglages, votre historique et votre mémoire d'une visite à l'autre, l'application doit conserver un peu de données dans votre navigateur — cette partie vous revient.",
         "privacy.bannerNote": "Aucun tiers · aucun pistage · aucun profil",
@@ -1562,8 +1562,8 @@ const STRINGS = {
 
     // ---------------------------------------------------------------
     es: {
-        "app.title": "CALCULADORA OVID",
-        "app.pageTitle": "Calculadora Ovid",
+        "app.title": "OVID CALCULATOR",
+        "app.pageTitle": "Ovid Calculator",
         "privacy.bannerTitle": "Tus datos se quedan en tu dispositivo",
         "privacy.bannerText": "Ovid no tiene servidor, ni analítica, ni publicidad. Nada de lo que escribes se envía a ningún sitio. Para recordar tus ajustes, tu historial y tu memoria entre visitas, la aplicación necesita guardar algo en tu navegador — y esa parte la decides tú.",
         "privacy.bannerNote": "Sin terceros · sin rastreo · sin perfiles",
@@ -1946,8 +1946,8 @@ const STRINGS = {
 
     // ---------------------------------------------------------------
     zh: {
-        "app.title": "OVID 计算器",
-        "app.pageTitle": "Ovid 计算器",
+        "app.title": "OVID CALCULATOR",
+        "app.pageTitle": "Ovid Calculator",
         "privacy.bannerTitle": "你的数据只留在你的设备上",
         "privacy.bannerText": "Ovid 没有服务器、没有分析统计、没有广告，你输入的任何内容都不会被发送到任何地方。为了在下次访问时还记得你的设置、历史记录和存储值，应用需要在浏览器里保存少量数据——这一部分由你决定。",
         "privacy.bannerNote": "无第三方 · 无追踪 · 无画像",
