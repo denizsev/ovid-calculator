@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" data-i18n="privacy.description" content="How Ovid Calculator handles your data: no server, no analytics, no third parties. Everything stays in your browser.">
+    <meta name="theme-color" content="#05070d">
+    <title data-i18n="privacy.pageTitle">Privacy — Ovid Calculator</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="privacy-page">
+
+<div class="sky" aria-hidden="true">
+  <div class="base"></div>
+  <div class="bleed anim"></div>
+  <div class="band anim"></div>
+  <div class="neb neb-a anim"></div>
+  <div class="neb neb-b anim"></div>
+  <div class="wisp wisp-a anim"></div>
+  <div class="neb neb-c anim"></div>
+  <div class="dust anim"></div>
+  <div class="graticule"></div>
+  <div class="grain"></div>
+  <div class="vignette"></div>
+</div>
+
+<header class="app-header">
+    <h1 class="app-title" data-i18n="privacy.pageHeading">PRIVACY NOTICE</h1>
+
+    <div class="header-tools">
+        <span id="lang-mount"></span>
+        <a class="chip" href="index.html" data-i18n="privacy.back">← Back to the calculator</a>
+        <button id="privacy-open" class="chip" type="button" data-i18n="privacy.openSettings">Open privacy settings</button>
+    </div>
+</header>
+
+<main>
+    <article class="privacy-doc">
+
+        <p class="privacy-updated" data-i18n="privacy.updated">Last updated: August 2026</p>
+
+        <section>
+            <h2 data-i18n="privacy.s1Title">The short version</h2>
+            <p data-i18n="privacy.s1Body"></p>
+        </section>
+
+        <section>
+            <h2 data-i18n="privacy.s2Title">What is stored on your device</h2>
+            <p data-i18n="privacy.s2Body"></p>
+            <div class="privacy-table-wrap">
+                <table id="privacy-table"></table>
+            </div>
+        </section>
+
+        <section>
+            <h2 data-i18n="privacy.s3Title">Who receives your data</h2>
+            <p data-i18n="privacy.s3Body"></p>
+        </section>
+
+        <section>
+            <h2 data-i18n="privacy.s4Title">Legal basis</h2>
+            <p data-i18n="privacy.s4Body"></p>
+        </section>
+
+        <section>
+            <h2 data-i18n="privacy.s5Title">Your rights</h2>
+            <p data-i18n="privacy.s5Body"></p>
+            <div class="privacy-footprint">
+                <span data-i18n="privacy.footprint"></span>
+                <strong id="privacy-bytes"></strong>
+            </div>
+            <div class="privacy-actions">
+                <button type="button" class="text-btn" id="privacy-export" data-i18n="privacy.export"></button>
+                <button type="button" class="text-btn privacy-danger" id="privacy-erase" data-i18n="privacy.erase"></button>
+            </div>
+        </section>
+
+        <section>
+            <h2 data-i18n="privacy.s6Title">Children</h2>
+            <p data-i18n="privacy.s6Body"></p>
+        </section>
+
+        <section>
+            <h2 data-i18n="privacy.s7Title">Changes and contact</h2>
+            <p data-i18n="privacy.s7Body"></p>
+        </section>
+
+    </article>
+</main>
+
+<footer class="calc-footer">
+    <span data-i18n="app.footer">Powered by Deniz • Ovid Calculator</span>
+    <span class="privacy-sep" aria-hidden="true">·</span>
+    <span class="privacy-mount"></span>
+</footer>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="engine.js"></script>
+<script src="i18n.js"></script>
+<script src="privacy.js"></script>
+</body>
+</html>

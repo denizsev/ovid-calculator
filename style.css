@@ -1,3 +1,17 @@
+/* Orbitron is served from our own origin, not from Google's CDN. A remote font
+   request would send every visitor's IP address to a third party before they
+   have agreed to anything — the Munich court (LG München I, 3 O 17493/20)
+   treated exactly that as an unlawful transfer. Orbitron is licensed under the
+   SIL Open Font License 1.1, which permits hosting it ourselves; the licence
+   travels with the file in fonts/OFL.txt. One variable file covers 400–900. */
+@font-face {
+    font-family: 'Orbitron';
+    font-style: normal;
+    font-weight: 400 900;
+    font-display: swap;
+    src: url('fonts/orbitron-latin.woff2') format('woff2');
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -5,10 +19,10 @@
 }
 
 :root {
-    --display-bg: rgba(8, 16, 28, 0.24);
+    --display-bg: rgba(4, 9, 18, 0.55);
     --panel-bg: rgba(8, 16, 28, 0.55);
-    --button-bg: rgba(255, 255, 255, 0.02);
-    --button-hover: rgba(255, 255, 255, 0.09);
+    --button-bg: rgba(255, 255, 255, 0.045);
+    --button-hover: rgba(255, 255, 255, 0.11);
     --sci-bg: rgba(159, 231, 255, 0.06);
     --sci-hover: rgba(159, 231, 255, 0.14);
     --operator-color: #9fe7ff;
@@ -16,72 +30,419 @@
     --text-color: #f5fbff;
     --muted-color: rgba(245, 251, 255, 0.55);
     --border-glow: rgba(159, 231, 255, 0.22);
+    --ground: #05070d;
+
+    /* fluid sizing tokens: scale with viewport instead of hard breakpoint cliffs */
+    --gap-sm: clamp(5px, 1.2vh, 9px);
+    --gap-md: clamp(7px, 1.9vw, 14px);
+    --btn-h: clamp(44px, 8.4vh, 68px);
+    --sci-h: clamp(30px, 5vh, 42px);
+    --display-h: clamp(88px, 13.5vh, 150px);
 }
 
-body, html {
-    font-family: 'Orbitron', 'Segoe UI', sans-serif;
+html {
     height: 100%;
-    color: var(--text-color);
+    color-scheme: dark;
 }
 
 body {
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     position: relative;
+    isolation: isolate;
     background-color: #05070d;
+    font-family: 'Orbitron', 'Segoe UI', sans-serif;
+    color: var(--text-color);
 }
 
-/* ================= BACKGROUND ================= */
+/* ================= BACKGROUND =================
+   The sky is drawn, not downloaded. Layer order behind the UI:
+     -4  .sky      pure-CSS deep field (nebulae, dust, cluster, hero stars)
+     -3  #skyflow  canvas parallax — the only part CSS cannot fake
+     -1  .star-map contributor stars
+   ============================================== */
 
-/* VIDEO FULL BACKGROUND */
-#bg-video {
+#skyflow {
     position: fixed;
-    top: 0;
-    left: 0;
+    inset: 0;
+    z-index: -3;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+#skyflow canvas {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    z-index: -2;
+    display: block;
 }
 
-/* procedural starfield (no external asset needed) */
-body::before {
+/* a pool of calm at the centre so the readout always wins over the motion */
+#skyflow::after {
     content: "";
-    position: fixed;
-    inset: 0;
-    background-image:
-        radial-gradient(1.5px 1.5px at 12% 22%, rgba(255, 255, 255, 0.9), transparent),
-        radial-gradient(1px 1px at 28% 68%, rgba(255, 255, 255, 0.7), transparent),
-        radial-gradient(1.5px 1.5px at 46% 14%, rgba(255, 255, 255, 0.8), transparent),
-        radial-gradient(1px 1px at 62% 82%, rgba(255, 255, 255, 0.6), transparent),
-        radial-gradient(1.5px 1.5px at 78% 34%, rgba(255, 255, 255, 0.9), transparent),
-        radial-gradient(1px 1px at 88% 66%, rgba(255, 255, 255, 0.55), transparent),
-        radial-gradient(1px 1px at 6% 88%, rgba(255, 255, 255, 0.65), transparent),
-        radial-gradient(1.5px 1.5px at 95% 12%, rgba(255, 255, 255, 0.7), transparent);
-    background-repeat: repeat;
-    background-size: 280px 280px;
-    opacity: 0.3;
-    z-index: -1;
-    animation: twinkle 6s ease-in-out infinite alternate;
+    position: absolute;
+    inset: -1px;
+    background:
+        radial-gradient(ellipse 30% 40% at 50% 50%, rgba(5, 7, 13, 0.82), rgba(5, 7, 13, 0.40) 55%, rgba(5, 7, 13, 0) 80%),
+        radial-gradient(ellipse 130% 105% at 50% 50%, rgba(5, 7, 13, 0) 64%, rgba(5, 7, 13, 0.22) 100%);
 }
 
-body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background: radial-gradient(
-        circle at center,
-        rgba(159, 231, 255, 0.08),
-        transparent 60%
-    );
-    z-index: -1;
+/* ===========================================================================
+   THE SKY — fixed, full-viewport, inert, behind all content.
+
+   back .. front
+     1  .base       deep wash, four colour zones         static
+     2  .bleed      conic hue bleed                      160s rotate
+     3  .band       galactic band + mottling             190s breathe
+     4  .neb-a      cyan / teal cloud        screen      128s breathe
+     5  .neb-b      indigo / violet cloud    screen      164s breathe
+     6  .wisp-a     cyan filaments           screen      210s
+     7  .wisp-b     violet filaments         screen      178s
+     8  .neb-c      amber ember (sparing)    screen       96s breathe
+     9  .dust       dark lanes               multiply    230s counter-drift
+    --  moving stars are drawn by the canvas layer above, not here
+    14  .heroes     bright suns + spikes                 twinkle
+    15  .graticule  instrument hairlines                 static
+    16  .grain      sensor noise (anti-banding)          static
+    17  .vignette   falloff                              static
+   =========================================================================== */
+
+.sky {
+  position: fixed;
+  inset: 0;
+  z-index: -4;
+  pointer-events: none;
+  overflow: hidden;
+  background: var(--ground);
+  isolation: isolate;   /* keep blend modes inside the sky */
+  contain: strict;      /* nothing here can affect page layout or paint */
+}
+.sky > * {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+.sky .anim {
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
 }
 
+/* --- 1. base wash --------------------------------------------------------
+   Wide, shallow gradients sized in vmax so a 1440px desktop and a 375px phone
+   see the same composition rather than the phone seeing one flat corner.
+   Nothing here is a hard edge: a long exposure has none.                    */
+.base {
+  background:
+    radial-gradient(92vmax 70vmax at 15% 6%,    rgba(30, 96, 130, .30) 0%, rgba(18, 52, 86, .11) 36%, rgba(5, 7, 13, 0) 66%),
+    radial-gradient(76vmax 82vmax at 93% 20%,   rgba(50, 54, 130, .24) 0%, rgba(26, 30, 78, .09) 40%, rgba(5, 7, 13, 0) 68%),
+    radial-gradient(84vmax 62vmax at 82% 100%,  rgba(92, 52, 108, .16) 0%, rgba(40, 24, 58, .06) 42%, rgba(5, 7, 13, 0) 70%),
+    radial-gradient(52vmax 52vmax at 0% 88%,    rgba(14, 70, 84, .15) 0%, rgba(5, 7, 13, 0) 60%),
+    /* the cavity: keeps most of the frame genuinely black so the clouds have
+       something to be bright against */
+    radial-gradient(64vmax 48vmax at 46% 74%,   rgba(3, 4, 9, .70) 0%, rgba(3, 4, 9, .25) 52%, rgba(5, 7, 13, 0) 82%),
+    radial-gradient(150vmax 130vmax at 50% 46%, rgba(5, 7, 13, .10) 0%, rgba(4, 5, 11, .82) 70%, rgba(2, 3, 7, .96) 100%),
+    var(--ground);
+}
+
+/* --- 2. colour bleed -----------------------------------------------------
+   A conic sweep at very low opacity: the field is never one flat hue, it
+   drifts warm-cool around the frame the way a stacked exposure does.        */
+.bleed {
+  inset: -50%;
+  opacity: .3;
+  mix-blend-mode: screen;
+  background: conic-gradient(from 200deg at 50% 50%,
+    rgba(24, 84, 116, .16) 0deg,
+    rgba(52, 56, 132, .13) 78deg,
+    rgba(96, 56, 112, .10) 155deg,
+    rgba(140, 92, 60, .07) 218deg,
+    rgba(30, 92, 112, .13) 296deg,
+    rgba(24, 84, 116, .16) 360deg);
+  animation-name: bleed-turn;
+  animation-duration: 300s;
+  animation-timing-function: linear;
+}
+@keyframes bleed-turn {
+  from { transform: rotate(0deg)   scale(1); }
+  to   { transform: rotate(360deg) scale(1); }
+}
+
+/* --- 3. galactic band ----------------------------------------------------
+   An elongated wash of unresolved starlight, mottled so it isn't a stripe.
+   Oversized before rotation so the corners are never exposed.               */
+.band {
+  inset: -45%;
+  mix-blend-mode: screen;
+  background:
+    /* mottling — brighter knots along the band */
+    radial-gradient(26vmax 7vmax at 22% 50%, rgba(190, 216, 240, .10) 0%, transparent 72%),
+    radial-gradient(20vmax 5vmax at 58% 48%, rgba(214, 234, 252, .12) 0%, transparent 70%),
+    radial-gradient(30vmax 6vmax at 82% 52%, rgba(168, 200, 232, .08) 0%, transparent 74%),
+    /* the band itself */
+    linear-gradient(0deg,
+      rgba(5, 7, 13, 0)         41%,
+      rgba(104, 142, 180, .055) 46.5%,
+      rgba(176, 208, 236, .115) 50%,
+      rgba(104, 142, 180, .055) 53.5%,
+      rgba(5, 7, 13, 0)         59%);
+  animation-name: band-breathe;
+  animation-duration: 190s;
+}
+@keyframes band-breathe {
+  0%, 100% { transform: rotate(-24deg) translate3d(0, 0, 0) scale(1);     opacity: .70; }
+  50%      { transform: rotate(-24deg) translate3d(-1.4%, .9%, 0) scale(1.05); opacity: 1; }
+}
+
+/* --- 4/5/8. nebula clouds ------------------------------------------------
+   No filter:blur() anywhere. The softness is baked into the gradient stops,
+   so animating transform never forces the layer to be re-blurred per frame.  */
+.neb { inset: -25%; mix-blend-mode: screen; }
+
+.neb-a {
+  background:
+    radial-gradient(48vmax 36vmax at 24% 27%, rgba(28, 148, 192, .40) 0%, rgba(20, 96, 140, .18) 34%, rgba(12, 52, 88, .05) 58%, transparent 76%),
+    radial-gradient(28vmax 40vmax at 36% 43%, rgba(58, 186, 218, .20) 0%, rgba(26, 108, 150, .07) 42%, transparent 72%),
+    radial-gradient(12vmax 10vmax at 19% 21%, rgba(159, 231, 255, .26) 0%, transparent 68%),
+    radial-gradient(6vmax 5vmax at 21% 23%,   rgba(214, 246, 255, .22) 0%, transparent 66%),
+    radial-gradient(9vmax 7vmax  at 30% 33%,  rgba(120, 214, 246, .16) 0%, transparent 70%),
+    radial-gradient(56vmax 26vmax at 58% 14%, rgba(32, 84, 140, .15) 0%, transparent 72%);
+  animation-name: breathe-a;
+  animation-duration: 128s;
+}
+@keyframes breathe-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1);          opacity: .70; }
+  50%      { transform: translate3d(2%, -1.5%, 0) scale(1.09);  opacity: 1; }
+}
+
+.neb-b {
+  background:
+    radial-gradient(44vmax 42vmax at 80% 64%, rgba(80, 80, 178, .30) 0%, rgba(48, 48, 118, .13) 38%, transparent 70%),
+    radial-gradient(26vmax 30vmax at 90% 50%, rgba(132, 96, 196, .18) 0%, transparent 66%),
+    radial-gradient(11vmax 10vmax at 84% 60%, rgba(168, 138, 224, .16) 0%, transparent 68%),
+    radial-gradient(24vmax 20vmax at 66% 82%, rgba(46, 104, 176, .16) 0%, transparent 72%),
+    radial-gradient(38vmax 22vmax at 38% 94%, rgba(40, 60, 130, .13) 0%, transparent 74%);
+  animation-name: breathe-b;
+  animation-duration: 164s;
+}
+@keyframes breathe-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.06);       opacity: .95; }
+  50%      { transform: translate3d(-2.2%, 1.2%, 0) scale(1);   opacity: .64; }
+}
+
+/* --- 6/7. filaments ------------------------------------------------------
+   Rotated elements holding very elongated ellipses. This directional streaking
+   is what separates "nebula" from "purple blob" — CSS radial-gradients can't
+   be rotated individually, so the whole layer is rotated instead.            */
+.wisp { inset: -45%; mix-blend-mode: screen; }
+
+.wisp-a {
+  background:
+    radial-gradient(34vmax 2.6vmax at 34% 44%, rgba(72, 202, 240, .15) 0%, transparent 74%),
+    radial-gradient(25vmax 1.8vmax at 26% 50%, rgba(159, 231, 255, .12) 0%, transparent 72%),
+    radial-gradient(42vmax 3.4vmax at 47% 56%, rgba(40, 148, 200, .11) 0%, transparent 76%),
+    radial-gradient(18vmax 1.4vmax at 30% 39%, rgba(200, 244, 255, .10) 0%, transparent 70%);
+  animation-name: wisp-a-move;
+  animation-duration: 210s;
+}
+@keyframes wisp-a-move {
+  0%, 100% { transform: rotate(-34deg) translate3d(0, 0, 0) scale(1);    opacity: .62; }
+  50%      { transform: rotate(-34deg) translate3d(1.6%, -1%, 0) scale(1.07); opacity: 1; }
+}
+
+.wisp-b {
+  background:
+    radial-gradient(38vmax 2.8vmax at 62% 52%, rgba(124, 96, 214, .13) 0%, transparent 74%),
+    radial-gradient(27vmax 2vmax   at 70% 46%, rgba(78, 110, 220, .11) 0%, transparent 72%),
+    radial-gradient(21vmax 1.6vmax at 58% 60%, rgba(168, 132, 232, .09) 0%, transparent 72%);
+  animation-name: wisp-b-move;
+  animation-duration: 178s;
+}
+@keyframes wisp-b-move {
+  0%, 100% { transform: rotate(19deg) translate3d(0, 0, 0) scale(1.05);  opacity: .95; }
+  50%      { transform: rotate(19deg) translate3d(-1.4%, 1.2%, 0) scale(1); opacity: .55; }
+}
+
+/* amber is the rare accent: one small warm ember, deliberately faint */
+.neb-c {
+  background:
+    radial-gradient(16vmax 13vmax at 77% 72%, rgba(248, 164, 95, .20) 0%, rgba(186, 104, 56, .07) 42%, transparent 72%),
+    radial-gradient(6vmax 5vmax   at 78% 73%, rgba(255, 202, 154, .17) 0%, transparent 64%),
+    radial-gradient(9vmax 4vmax   at 71% 68%, rgba(248, 164, 95, .09) 0%, transparent 70%),
+    radial-gradient(11vmax 9vmax  at 10% 9%,  rgba(248, 164, 95, .05) 0%, transparent 70%);
+  animation-name: breathe-c;
+  animation-duration: 96s;
+}
+@keyframes breathe-c {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1);           opacity: .55; }
+  50%      { transform: translate3d(-1%, -.8%, 0) scale(1.12);   opacity: .95; }
+}
+
+/* --- 9. dark dust lanes --------------------------------------------------
+   Multiplying the ground colour back over the clouds carves negative space
+   into them. Rotated so the lanes run with the band, not across it.          */
+.dust {
+  inset: -45%;
+  mix-blend-mode: multiply;
+  opacity: .9;
+  /* Every stop runs colour -> fully transparent at 100%, so there is no edge
+     anywhere; aspect ratios stay under ~4:1 so these read as density, not as
+     streaks across the plate. */
+  background:
+    radial-gradient(20vmax 6vmax   at 37% 45%, rgba(5, 7, 13, .60), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(13vmax 4.5vmax at 25% 49%, rgba(5, 7, 13, .50), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(24vmax 7vmax   at 57% 53%, rgba(5, 7, 13, .52), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(11vmax 8vmax   at 45% 38%, rgba(5, 7, 13, .42), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(16vmax 5vmax   at 70% 58%, rgba(5, 7, 13, .46), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(9vmax 7vmax    at 64% 66%, rgba(5, 7, 13, .34), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(13vmax 4vmax   at 81% 43%, rgba(5, 7, 13, .38), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(8vmax 6vmax    at 30% 61%, rgba(5, 7, 13, .32), rgba(5, 7, 13, 0) 100%),
+    radial-gradient(15vmax 5vmax   at 18% 40%, rgba(5, 7, 13, .36), rgba(5, 7, 13, 0) 100%);
+  animation-name: dust-drift;
+  animation-duration: 230s;
+}
+@keyframes dust-drift {
+  0%, 100% { transform: rotate(-30deg) translate3d(0, 0, 0) scale(1.04); }
+  50%      { transform: rotate(-30deg) translate3d(-1.4%, .9%, 0) scale(1); }
+}
+
+/* --- 13b. globular cluster ----------------------------------------------
+   A single non-tiling knot of resolved pinpoints with its own unresolved
+   glow, sitting inside the cyan nebulosity. Pure detail — but it is the
+   detail that makes the frame read as a telescope plate. */
+.cluster {
+  inset: auto;
+  left: 23%; top: 31%;
+  width: 150px; height: 150px;
+  margin: -75px 0 0 -75px;
+  background-image:
+    radial-gradient(circle at 124.93px 20.67px,rgba(255,255,255,0.54) 0,rgba(255,255,255,0.54) 0.51px,rgba(255,255,255,0.16) 0.97px,rgba(255,255,255,0) 1.73px),radial-gradient(circle at 62.63px 108.38px,rgba(208,232,255,0.5) 0,rgba(208,232,255,0.5) 0.96px,rgba(208,232,255,0.15) 1.83px,rgba(208,232,255,0) 3.27px),radial-gradient(circle at 56.65px 118.75px,rgba(208,232,255,0.51) 0,rgba(208,232,255,0.51) 0.79px,rgba(208,232,255,0.15) 1.49px,rgba(208,232,255,0) 2.67px),radial-gradient(circle at 123.86px 118.48px,rgba(208,232,255,0.49) 0,rgba(208,232,255,0.49) 0.54px,rgba(208,232,255,0.15) 1.03px,rgba(208,232,255,0) 1.84px),radial-gradient(circle at 90.01px 122.84px,rgba(255,255,255,0.5) 0,rgba(255,255,255,0.5) 0.79px,rgba(255,255,255,0.15) 1.5px,rgba(255,255,255,0) 2.68px),radial-gradient(circle at 69.11px 14.01px,rgba(255,255,255,0.59) 0,rgba(255,255,255,0.59) 0.56px,rgba(255,255,255,0.18) 1.07px,rgba(255,255,255,0) 1.91px),radial-gradient(circle at 137.62px 90.5px,rgba(208,232,255,0.41) 0,rgba(208,232,255,0.41) 0.55px,rgba(208,232,255,0.12) 1.05px,rgba(208,232,255,0) 1.88px),radial-gradient(circle at 80.92px 120.73px,rgba(208,232,255,0.71) 0,rgba(208,232,255,0.71) 0.73px,rgba(208,232,255,0.21) 1.4px,rgba(208,232,255,0) 2.5px),radial-gradient(circle at 60.76px 134.28px,rgba(255,255,255,0.46) 0,rgba(255,255,255,0.46) 0.61px,rgba(255,255,255,0.14) 1.16px,rgba(255,255,255,0) 2.08px),radial-gradient(circle at 101.43px 133.52px,rgba(255,255,255,0.38) 0,rgba(255,255,255,0.38) 0.63px,rgba(255,255,255,0.11) 1.19px,rgba(255,255,255,0) 2.13px),radial-gradient(circle at 32.55px 39.31px,rgba(208,232,255,0.39) 0,rgba(208,232,255,0.39) 0.71px,rgba(208,232,255,0.12) 1.34px,rgba(208,232,255,0) 2.41px),radial-gradient(circle at 138.97px 100.19px,rgba(255,255,255,0.51) 0,rgba(255,255,255,0.51) 0.56px,rgba(255,255,255,0.15) 1.07px,rgba(255,255,255,0) 1.92px),radial-gradient(circle at 30.9px 66.41px,rgba(208,232,255,0.46) 0,rgba(208,232,255,0.46) 0.67px,rgba(208,232,255,0.14) 1.27px,rgba(208,232,255,0) 2.27px),radial-gradient(circle at 7.15px 88.17px,rgba(208,232,255,0.42) 0,rgba(208,232,255,0.42) 0.52px,rgba(208,232,255,0.13) 0.99px,rgba(208,232,255,0) 1.78px),radial-gradient(circle at 106.89px 39.19px,rgba(208,232,255,0.41) 0,rgba(208,232,255,0.41) 0.81px,rgba(208,232,255,0.12) 1.55px,rgba(208,232,255,0) 2.77px),radial-gradient(circle at 133.67px 63.54px,rgba(208,232,255,0.38) 0,rgba(208,232,255,0.38) 0.6px,rgba(208,232,255,0.11) 1.14px,rgba(208,232,255,0) 2.04px),radial-gradient(circle at 17.66px 49.49px,rgba(208,232,255,0.6) 0,rgba(208,232,255,0.6) 0.61px,rgba(208,232,255,0.18) 1.15px,rgba(208,232,255,0) 2.06px),radial-gradient(circle at 24.1px 85.63px,rgba(255,255,255,0.64) 0,rgba(255,255,255,0.64) 0.61px,rgba(255,255,255,0.19) 1.16px,rgba(255,255,255,0) 2.08px),radial-gradient(circle at 137.29px 85.6px,rgba(255,255,255,0.61) 0,rgba(255,255,255,0.61) 0.54px,rgba(255,255,255,0.18) 1.02px,rgba(255,255,255,0) 1.83px),radial-gradient(circle at 80.01px 23.59px,rgba(208,232,255,0.56) 0,rgba(208,232,255,0.56) 0.6px,rgba(208,232,255,0.17) 1.14px,rgba(208,232,255,0) 2.04px),radial-gradient(circle at 87.81px 12.24px,rgba(208,232,255,0.59) 0,rgba(208,232,255,0.59) 0.56px,rgba(208,232,255,0.18) 1.07px,rgba(208,232,255,0) 1.91px),radial-gradient(circle at 66.92px 140.73px,rgba(255,255,255,0.55) 0,rgba(255,255,255,0.55) 0.6px,rgba(255,255,255,0.16) 1.15px,rgba(255,255,255,0) 2.05px),radial-gradient(circle at 106.39px 66.7px,rgba(255,255,255,0.46) 0,rgba(255,255,255,0.46) 0.7px,rgba(255,255,255,0.14) 1.34px,rgba(255,255,255,0) 2.4px),radial-gradient(circle at 74.3px 37.39px,rgba(208,232,255,0.72) 0,rgba(208,232,255,0.72) 0.59px,rgba(208,232,255,0.22) 1.12px,rgba(208,232,255,0) 2px),radial-gradient(circle at 61.91px 103.94px,rgba(208,232,255,0.66) 0,rgba(208,232,255,0.66) 0.55px,rgba(208,232,255,0.2) 1.05px,rgba(208,232,255,0) 1.88px),radial-gradient(circle at 36.53px 113.1px,rgba(208,232,255,0.66) 0,rgba(208,232,255,0.66) 0.76px,rgba(208,232,255,0.2) 1.45px,rgba(208,232,255,0) 2.6px),radial-gradient(circle at 27.04px 30.12px,rgba(208,232,255,0.5) 0,rgba(208,232,255,0.5) 0.52px,rgba(208,232,255,0.15) 0.98px,rgba(208,232,255,0) 1.75px),radial-gradient(circle at 49.65px 114.66px,rgba(208,232,255,0.47) 0,rgba(208,232,255,0.47) 0.79px,rgba(208,232,255,0.14) 1.5px,rgba(208,232,255,0) 2.68px),radial-gradient(circle at 24.99px 84.06px,rgba(208,232,255,0.4) 0,rgba(208,232,255,0.4) 0.74px,rgba(208,232,255,0.12) 1.41px,rgba(208,232,255,0) 2.53px),radial-gradient(circle at 113.23px 38.68px,rgba(208,232,255,0.6) 0,rgba(208,232,255,0.6) 0.56px,rgba(208,232,255,0.18) 1.06px,rgba(208,232,255,0) 1.9px),radial-gradient(circle at 62.2px 108.96px,rgba(208,232,255,0.68) 0,rgba(208,232,255,0.68) 0.85px,rgba(208,232,255,0.2) 1.61px,rgba(208,232,255,0) 2.89px),radial-gradient(circle at 64.72px 100.61px,rgba(208,232,255,0.65) 0,rgba(208,232,255,0.65) 0.64px,rgba(208,232,255,0.19) 1.21px,rgba(208,232,255,0) 2.17px),radial-gradient(circle at 116.54px 83.12px,rgba(208,232,255,0.7) 0,rgba(208,232,255,0.7) 0.55px,rgba(208,232,255,0.21) 1.05px,rgba(208,232,255,0) 1.88px),radial-gradient(circle at 91.22px 66.72px,rgba(208,232,255,0.65) 0,rgba(208,232,255,0.65) 1.26px,rgba(208,232,255,0.2) 2.39px,rgba(208,232,255,0) 4.27px),radial-gradient(circle at 60.04px 40.15px,rgba(208,232,255,0.53) 0,rgba(208,232,255,0.53) 0.84px,rgba(208,232,255,0.16) 1.6px,rgba(208,232,255,0) 2.85px),radial-gradient(circle at 54.78px 100.1px,rgba(255,255,255,0.77) 0,rgba(255,255,255,0.77) 0.62px,rgba(255,255,255,0.23) 1.17px,rgba(255,255,255,0) 2.1px),radial-gradient(circle at 103.1px 138.35px,rgba(255,255,255,0.4) 0,rgba(255,255,255,0.4) 0.57px,rgba(255,255,255,0.12) 1.09px,rgba(255,255,255,0) 1.94px),radial-gradient(circle at 58.1px 51.49px,rgba(255,255,255,0.75) 0,rgba(255,255,255,0.75) 0.59px,rgba(255,255,255,0.22) 1.13px,rgba(255,255,255,0) 2.01px),radial-gradient(circle at 112.41px 88.38px,rgba(208,232,255,0.66) 0,rgba(208,232,255,0.66) 0.94px,rgba(208,232,255,0.2) 1.79px,rgba(208,232,255,0) 3.2px),radial-gradient(circle at 22.59px 52.47px,rgba(208,232,255,0.48) 0,rgba(208,232,255,0.48) 0.62px,rgba(208,232,255,0.15) 1.19px,rgba(208,232,255,0) 2.12px),radial-gradient(circle at 100.02px 33.07px,rgba(255,255,255,0.64) 0,rgba(255,255,255,0.64) 0.69px,rgba(255,255,255,0.19) 1.32px,rgba(255,255,255,0) 2.36px),radial-gradient(circle at 104.55px 59.71px,rgba(208,232,255,0.51) 0,rgba(208,232,255,0.51) 0.92px,rgba(208,232,255,0.15) 1.74px,rgba(208,232,255,0) 3.12px),radial-gradient(circle at 82.12px 116.03px,rgba(208,232,255,0.62) 0,rgba(208,232,255,0.62) 0.8px,rgba(208,232,255,0.18) 1.52px,rgba(208,232,255,0) 2.72px),radial-gradient(circle at 45.91px 18.4px,rgba(255,255,255,0.49) 0,rgba(255,255,255,0.49) 0.63px,rgba(255,255,255,0.15) 1.2px,rgba(255,255,255,0) 2.15px),radial-gradient(circle at 14.34px 97.49px,rgba(255,255,255,0.55) 0,rgba(255,255,255,0.55) 0.51px,rgba(255,255,255,0.16) 0.97px,rgba(255,255,255,0) 1.74px),radial-gradient(circle at 108.89px 48.6px,rgba(208,232,255,0.63) 0,rgba(208,232,255,0.63) 0.61px,rgba(208,232,255,0.19) 1.15px,rgba(208,232,255,0) 2.06px),radial-gradient(circle at 90.45px 80.83px,rgba(208,232,255,0.51) 0,rgba(208,232,255,0.51) 0.95px,rgba(208,232,255,0.15) 1.8px,rgba(208,232,255,0) 3.23px),radial-gradient(circle at 45.57px 128.21px,rgba(208,232,255,0.39) 0,rgba(208,232,255,0.39) 0.56px,rgba(208,232,255,0.12) 1.06px,rgba(208,232,255,0) 1.89px),radial-gradient(circle at 91.19px 94.04px,rgba(208,232,255,0.68) 0,rgba(208,232,255,0.68) 0.52px,rgba(208,232,255,0.21) 0.99px,rgba(208,232,255,0) 1.77px),radial-gradient(circle at 64.62px 51.37px,rgba(208,232,255,0.79) 0,rgba(208,232,255,0.79) 0.96px,rgba(208,232,255,0.24) 1.82px,rgba(208,232,255,0) 3.25px),radial-gradient(circle at 88.93px 71.11px,rgba(255,255,255,0.59) 0,rgba(255,255,255,0.59) 0.98px,rgba(255,255,255,0.18) 1.86px,rgba(255,255,255,0) 3.33px),radial-gradient(circle at 65.87px 47.94px,rgba(208,232,255,0.61) 0,rgba(208,232,255,0.61) 0.73px,rgba(208,232,255,0.18) 1.39px,rgba(208,232,255,0) 2.48px),
+    radial-gradient(circle closest-side, rgba(190, 230, 255, .09) 0%, rgba(110, 180, 224, .03) 36%, rgba(159, 231, 255, 0) 68%);
+  background-repeat: no-repeat;
+  animation-name: cluster-breathe;
+  animation-duration: 74s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+@keyframes cluster-breathe {
+  0%, 100% { transform: scale(1);    opacity: .78; }
+  50%      { transform: scale(1.04); opacity: 1; }
+}
+
+/* --- 14. hero stars ------------------------------------------------------ */
+.hero {
+  position: absolute;
+  width: var(--s); height: var(--s);
+  margin-left: calc(var(--s) / -2);
+  margin-top: calc(var(--s) / -2);
+  opacity: var(--base);
+  background: radial-gradient(circle closest-side,
+    rgba(255, 255, 255, .98) 0%,
+    rgba(255, 255, 255, .62) 5%,
+    rgba(var(--tint), .34) 12%,
+    rgba(var(--tint), .13) 25%,
+    rgba(var(--tint), .04) 45%,
+    rgba(var(--tint), 0)   72%);
+  animation-name: twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+/* four-point diffraction spikes — what makes it read as a telescope plate */
+.hero::before, .hero::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: calc(var(--s) * var(--spike));
+  height: 1px;
+  margin-left: calc(var(--s) * var(--spike) / -2);
+  margin-top: -.5px;
+  background: linear-gradient(90deg,
+    rgba(var(--tint), 0)   0%,
+    rgba(var(--tint), .06) 32%,
+    rgba(255, 255, 255, .38) 50%,
+    rgba(var(--tint), .06) 68%,
+    rgba(var(--tint), 0)   100%);
+}
+.hero::after { transform: rotate(90deg); transform-origin: 50% 50%; }
 @keyframes twinkle {
-    0% { opacity: 0.18; }
-    100% { opacity: 0.42; }
+  0%, 100% { transform: scale(.90); opacity: calc(var(--base) * .58); }
+  50%      { transform: scale(1.07); opacity: var(--base); }
+}
+
+  .h1 { --s: 74px; --tint: 159,231,255; --spike: 3.6; --base: 0.8;
+    left: 16%; top: 21%; animation-duration: 11s; animation-delay: 0s; }
+  .h2 { --s: 96px; --tint: 255,224,192; --spike: 4; --base: 0.95;
+    left: 73%; top: 15%; animation-duration: 15s; animation-delay: -4s; }
+  .h3 { --s: 60px; --tint: 159,231,255; --spike: 3.2; --base: 0.62;
+    left: 89%; top: 62%; animation-duration: 9s; animation-delay: -2s; }
+  .h4 { --s: 66px; --tint: 248,164,95; --spike: 3.2; --base: 0.55;
+    left: 29%; top: 79%; animation-duration: 13s; animation-delay: -7s; }
+  .h5 { --s: 46px; --tint: 208,232,255; --spike: 2.8; --base: 0.42;
+    left: 60%; top: 41%; animation-duration: 8s; animation-delay: -5s; }
+  .h6 { --s: 52px; --tint: 208,232,255; --spike: 2.8; --base: 0.46;
+    left: 7%; top: 58%; animation-duration: 17s; animation-delay: -11s; }
+  .h7 { --s: 50px; --tint: 159,231,255; --spike: 2.8; --base: 0.4;
+    left: 44%; top: 7%; animation-duration: 12s; animation-delay: -9s; }
+
+/* --- 15. instrument graticule -------------------------------------------
+   Measurement hairlines at the threshold of visibility, masked out of the
+   centre so they never compete with the UI. Plate texture, not decoration.  */
+.graticule {
+  opacity: .34;
+  background:
+    repeating-linear-gradient(90deg, rgba(159, 231, 255, .05) 0 1px, transparent 1px 128px),
+    repeating-linear-gradient(0deg,  rgba(159, 231, 255, .04) 0 1px, transparent 1px 128px);
+  -webkit-mask-image: radial-gradient(115% 105% at 50% 50%, transparent 34%, rgba(0, 0, 0, .45) 68%, #000 100%);
+          mask-image: radial-gradient(115% 105% at 50% 50%, transparent 34%, rgba(0, 0, 0, .45) 68%, #000 100%);
+}
+
+/* --- 16. sensor grain ----------------------------------------------------
+   Two passes. 'overlay' dithers the huge soft gradients — this is the
+   anti-banding workhorse on a wide display. 'screen' adds hot-pixel glitter. */
+.grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' seed='7' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 220px 220px;
+  opacity: .14;
+  mix-blend-mode: overlay;
+}
+.grain-2 {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='3' seed='19' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  opacity: .04;
+  mix-blend-mode: screen;
+}
+
+/* --- 17. vignette -------------------------------------------------------- */
+.vignette {
+  background:
+    radial-gradient(122% 100% at 50% 44%, transparent 22%, rgba(4, 6, 12, .30) 52%, rgba(3, 4, 9, .74) 82%, rgba(1, 2, 5, .96) 100%),
+    linear-gradient(180deg, rgba(4, 6, 12, .46) 0%, transparent 18%, transparent 72%, rgba(4, 6, 12, .60) 100%);
+}
+
+/* ===========================================================================
+   REDUCED MOTION — the sky holds its pose.
+   =========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .sky *, .sky *::before, .sky *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  /* park the breathing layers near their mid-state so nothing looks unfinished */
+  .band   { transform: rotate(-24deg) scale(1.03); opacity: .86; }
+  .neb-a  { transform: scale(1.05); opacity: .88; }
+  .neb-b  { transform: scale(1.03); opacity: .82; }
+  .neb-c  { transform: scale(1.06); opacity: .78; }
+  .wisp-a { transform: rotate(-34deg) scale(1.04); opacity: .84; }
+  .wisp-b { transform: rotate(19deg) scale(1.03); opacity: .78; }
+  .dust   { transform: rotate(-30deg) scale(1.02); }
+  .hero   { transform: scale(1); }
 }
 
 /* ================= HEADER ================= */
@@ -90,20 +451,64 @@ body::after {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: 25px 25px 12px;
+    margin: clamp(14px, 3.5vh, 25px) clamp(14px, 4vw, 25px) clamp(6px, 1.5vh, 12px);
     position: relative;
-    z-index: 55;
+    z-index: 65;
 }
 
 .app-title {
-    font-size: 0.85rem;
-    letter-spacing: 0.3em;
+    font-weight: 400;
+    font-size: clamp(0.65rem, 2.2vw, 0.85rem);
+    letter-spacing: 0.28em;
     color: rgba(255, 255, 255, 0.6);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.header-tools {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: clamp(6px, 1.6vw, 10px);
+}
+
+.chip {
+    height: clamp(28px, 6vw, 34px);
+    padding: 0 clamp(8px, 2vw, 12px);
+    border-radius: 999px;
+    border: 1px solid rgba(159, 231, 255, 0.25);
+    background: var(--sci-bg);
+    color: var(--operator-color);
+    font-family: inherit;
+    font-size: clamp(0.6rem, 1.8vw, 0.72rem);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.chip:hover {
+    background: var(--sci-hover);
+    box-shadow: 0 0 14px rgba(159, 231, 255, 0.25);
+    transform: translateY(-1px);
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .icon-btn {
-    width: 40px;
-    height: 40px;
+    width: clamp(32px, 7vw, 40px);
+    height: clamp(32px, 7vw, 40px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -128,35 +533,59 @@ body::after {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 16px 24px 8px;
+    padding: clamp(8px, 2vh, 16px) clamp(10px, 4vw, 24px);
     min-height: 0;
+    /* purely a centring wrapper — it must not swallow pointer events, or the
+       contributor stars behind it become unreachable */
+    pointer-events: none;
 }
 
-/* CALCULATOR */
+.calculator,
+.side-panel {
+    pointer-events: auto;
+}
+
+/* CALCULATOR
+   The sky behind is now genuinely bright in places, so the instrument needs
+   its own body to sit in — otherwise the keys dissolve into the nebula. */
 .calculator {
     width: min(425px, 100%);
-    min-height: min(880px, calc(100vh - 110px));
-    padding: 26px 26px 18px;
-    background: transparent;
+    padding: clamp(12px, 3vw, 26px) clamp(12px, 3vw, 26px) clamp(10px, 2.4vw, 18px);
     display: flex;
     flex-direction: column;
     justify-content: center;
+    gap: 0;
     position: relative;
     transform: translateY(0);
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+    background: linear-gradient(
+        180deg,
+        rgba(10, 18, 32, 0.52),
+        rgba(6, 11, 20, 0.62)
+    );
+    border: 1px solid rgba(159, 231, 255, 0.09);
+    border-radius: clamp(22px, 4vw, 32px);
+    backdrop-filter: blur(18px) saturate(115%);
+    -webkit-backdrop-filter: blur(18px) saturate(115%);
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .calculator:hover {
     transform: translateY(-3px);
+    box-shadow:
+        0 30px 70px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 /* ================= DISPLAY ================= */
 
 #display {
-    height: 226px;
-    font-size: 2rem;
+    height: var(--display-h);
     text-align: right;
-    padding: 22px 18px;
+    padding: clamp(14px, 2.6vh, 22px) clamp(12px, 2.4vw, 18px);
     position: relative;
 
     display: flex;
@@ -165,8 +594,8 @@ body::after {
     justify-content: space-between;
     background: var(--display-bg);
     border: 1px solid rgba(159, 231, 255, 0.1);
-    border-radius: 26px;
-    margin-bottom: 18px;
+    border-radius: clamp(18px, 3vw, 26px);
+    margin-bottom: clamp(10px, 2vh, 18px);
     color: var(--text-color);
     overflow: hidden;
     backdrop-filter: blur(12px);
@@ -176,11 +605,17 @@ body::after {
         inset 0 0 20px rgba(159, 231, 255, 0.05);
 }
 
-.memory-indicator {
+.display-badges {
     position: absolute;
-    top: 14px;
-    left: 18px;
-    font-size: 0.75rem;
+    top: clamp(10px, 2vh, 14px);
+    left: clamp(12px, 2.4vw, 18px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.memory-indicator {
+    font-size: 0.7rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     width: 22px;
@@ -201,6 +636,13 @@ body::after {
     transform: scale(1);
 }
 
+.angle-indicator {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: rgba(159, 231, 255, 0.6);
+}
+
 #display .top,
 #display .bottom {
     width: 100%;
@@ -210,21 +652,39 @@ body::after {
     white-space: nowrap;
 }
 
+/* Carries the live expression as a row of individually clickable number
+   chips (see .num-chip), so — unlike .bottom right below it — it overrides
+   the shared rule above to lay out as wrapping flow text rather than a
+   single ellipsis-truncated line. */
 #display .top {
-    font-size: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: 0;
+    white-space: normal;
+    overflow: visible;
+    font-size: clamp(0.85rem, 2.6vw, 1.15rem);
     font-weight: 500;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: rgba(245, 251, 255, 0.58);
-    opacity: 0.6;
-    font-style: italic;
+    letter-spacing: 0.04em;
+    color: rgba(245, 251, 255, 0.72);
+    direction: ltr;
 }
 
 #display .bottom {
-    font-size: 2.5rem;
+    font-size: clamp(1.5rem, 6vw, 2.5rem);
     font-weight: 700;
     letter-spacing: 0.04em;
     color: var(--text-color);
+    transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+/* live preview: the answer is visible before "=" is pressed, but dimmed
+   so it reads as a suggestion rather than a committed result */
+#display .bottom.preview {
+    color: var(--operator-color);
+    opacity: 0.62;
+    font-weight: 600;
 }
 
 .copyable {
@@ -235,7 +695,7 @@ body::after {
     width: 100%;
     max-width: 210px;
     height: 1px;
-    margin: 0 auto 22px;
+    margin: 0 auto clamp(12px, 2.4vh, 22px);
     background: linear-gradient(
         90deg,
         rgba(255, 255, 255, 0),
@@ -252,30 +712,53 @@ body::after {
 .sci-buttons {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-bottom: 18px;
+    gap: var(--gap-sm);
+    margin-bottom: clamp(10px, 2.2vh, 18px);
 }
 
 .sci-row {
     display: grid;
-    gap: 10px;
+    gap: var(--gap-sm);
 }
 
 .memory-row {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
 }
 
 .function-row {
     grid-template-columns: repeat(5, 1fr);
 }
 
+.sci-advanced {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-sm);
+    animation: slideDown 0.25s ease;
+}
+
+.sci-advanced[hidden] {
+    display: none;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.sci.active,
+.sci-expand.active {
+    background: rgba(248, 164, 95, 0.16);
+    border-color: rgba(248, 164, 95, 0.45);
+    color: var(--accent-color);
+}
+
 .sci {
-    height: 44px;
-    font-size: 0.9rem;
+    height: var(--sci-h);
+    font-size: clamp(0.68rem, 1.9vw, 0.9rem);
     font-weight: 600;
     font-family: inherit;
     border: 1px solid rgba(159, 231, 255, 0.12);
-    border-radius: 14px;
+    border-radius: clamp(10px, 2vw, 14px);
     cursor: pointer;
     background: var(--sci-bg);
     color: var(--operator-color);
@@ -297,19 +780,19 @@ body::after {
 .buttons {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+    gap: var(--gap-md);
 }
 
 /* DEFAULT BUTTONS */
 button {
     position: relative;
     overflow: hidden;
-    height: 72px;
-    font-size: 1.28rem;
+    height: var(--btn-h);
+    font-size: clamp(0.95rem, 3.4vw, 1.28rem);
     font-weight: 600;
     font-family: inherit;
     border: none;
-    border-radius: 24px;
+    border-radius: clamp(16px, 3vw, 24px);
     cursor: pointer;
     background: var(--button-bg);
     color: var(--muted-color);
@@ -355,6 +838,17 @@ button:focus-visible {
     outline-offset: 2px;
 }
 
+/* a hairline top edge reads as a moulded key rather than a flat rectangle */
+.buttons button {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.buttons button:hover {
+    box-shadow:
+        0 10px 20px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
 /* NUMBERS */
 .num {
     color: var(--text-color);
@@ -370,7 +864,7 @@ button:focus-visible {
 
 /* EQUAL */
 .equal {
-    width: 72px;
+    width: var(--btn-h);
     border: 2px solid rgba(255, 255, 255, 0.75);
     border-radius: 50%;
     background: linear-gradient(135deg, var(--accent-color), #ff7a3d);
@@ -402,13 +896,14 @@ button:focus-visible {
 
 /* ================= HISTORY PANEL ================= */
 
-.history-panel {
+.side-panel {
     position: fixed;
     top: 0;
-    right: -340px;
-    width: min(320px, 88vw);
+    right: 0;
+    width: min(340px, 92vw);
     height: 100%;
-    padding: 90px 22px 22px;
+    height: 100dvh;
+    padding: 84px 18px 18px;
     background: var(--panel-bg);
     border-left: 1px solid rgba(159, 231, 255, 0.15);
     backdrop-filter: blur(20px);
@@ -416,23 +911,275 @@ button:focus-visible {
     display: flex;
     flex-direction: column;
     gap: 14px;
-    transition: right 0.35s ease;
-    z-index: 50;
+    transform: translateX(110%);
+    transition: transform 0.35s ease;
+    z-index: 60;
+    pointer-events: none;
 }
 
-.history-panel.open {
-    right: 0;
+.side-panel.open {
+    transform: translateX(0);
     box-shadow: -20px 0 40px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
 }
 
-.history-header {
+.chip.active {
+    background: rgba(248, 164, 95, 0.18);
+    border-color: rgba(248, 164, 95, 0.5);
+    color: var(--accent-color);
+}
+
+/* the expression line while warp mode walks through the steps */
+#display .top.warping {
+    color: var(--operator-color);
+    text-shadow: 0 0 14px rgba(159, 231, 255, 0.5);
+}
+
+.panel-hint {
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: var(--muted-color);
+}
+
+.panel-hint code {
+    font-family: inherit;
+    color: var(--operator-color);
+    background: rgba(159, 231, 255, 0.1);
+    padding: 1px 5px;
+    border-radius: 5px;
+}
+
+.units-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+}
+
+.unit-group-title {
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted-color);
+    margin-bottom: 7px;
+}
+
+.unit-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.unit-chip {
+    height: 30px;
+    padding: 0 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(159, 231, 255, 0.18);
+    background: var(--sci-bg);
+    color: var(--operator-color);
+    font-family: inherit;
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.unit-chip:hover {
+    background: var(--sci-hover);
+    transform: translateY(-1px);
+}
+
+/* Five tabs (history, constants, units, converter, tools) no longer fit on a
+   phone as equal grid columns, so the strip scrolls horizontally instead of
+   squeezing the labels into unreadability. */
+.panel-tabs {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 6px;
+    padding: 4px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    flex-shrink: 0;
+}
+
+.panel-tabs::-webkit-scrollbar { display: none; }
+
+.panel-tab {
+    height: 34px;
+    flex: 1 0 auto;
+    padding: 0 10px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted-color);
+    font-family: inherit;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.panel-tab.active {
+    background: rgba(159, 231, 255, 0.14);
+    color: var(--operator-color);
+}
+
+.panel-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+.panel-pane {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    min-height: 0;
+}
+
+.panel-pane.active {
+    display: flex;
+}
+
+.panel-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 0.95rem;
-    letter-spacing: 0.08em;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
     color: var(--text-color);
     text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.panel-empty {
+    color: var(--muted-color);
+    font-size: 0.85rem;
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* ---- constants ---- */
+
+.constants-list {
+    list-style: none;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.constant-item {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: background 0.2s ease;
+}
+
+.constant-item:hover {
+    background: rgba(159, 231, 255, 0.08);
+}
+
+.constant-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.constant-symbol {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--operator-color);
+    min-width: 32px;
+}
+
+.constant-name {
+    font-size: 0.72rem;
+    color: var(--muted-color);
+}
+
+.constant-value {
+    font-size: 0.8rem;
+    color: var(--text-color);
+    word-break: break-all;
+}
+
+/* ---- converter ---- */
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    color: var(--muted-color);
+    text-transform: uppercase;
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+/* only inside the side-by-side row should the fields share the width */
+.convert-row .field {
+    flex: 1 1 0;
+}
+
+#pane-convert {
+    justify-content: flex-start;
+}
+
+.field select,
+.field input {
+    height: 38px;
+    padding: 0 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(159, 231, 255, 0.18);
+    background: rgba(8, 16, 28, 0.75);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 0.85rem;
+    text-transform: none;
+    letter-spacing: normal;
+    width: 100%;
+}
+
+.field select:focus,
+.field input:focus {
+    outline: 2px solid var(--operator-color);
+    outline-offset: 1px;
+}
+
+.convert-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+#convert-swap {
+    height: 38px;
+    font-size: 1rem;
+    flex-shrink: 0;
+    padding: 0 6px;
+}
+
+.convert-result {
+    display: block;
+    padding: 14px;
+    border-radius: 14px;
+    background: rgba(159, 231, 255, 0.08);
+    border: 1px solid rgba(159, 231, 255, 0.18);
+    color: var(--text-color);
+    font-size: 1.05rem;
+    font-weight: 700;
+    text-align: center;
+    word-break: break-all;
 }
 
 .text-btn {
@@ -486,13 +1233,6 @@ button:focus-visible {
     color: var(--text-color);
 }
 
-.history-empty {
-    color: var(--muted-color);
-    font-size: 0.85rem;
-    text-align: center;
-    margin-top: 20px;
-}
-
 /* ================= TOAST ================= */
 
 .toast {
@@ -510,7 +1250,7 @@ button:focus-visible {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.25s ease, transform 0.25s ease;
-    z-index: 60;
+    z-index: 70;
 }
 
 .toast.show {
@@ -522,19 +1262,14 @@ button:focus-visible {
 
 .calc-footer {
     flex-shrink: 0;
-    padding: 10px 16px 16px;
+    padding: clamp(6px, 1.4vh, 10px) 16px clamp(8px, 1.8vh, 16px);
     text-align: center;
-    font-size: 0.75rem;
+    font-size: clamp(0.58rem, 1.6vw, 0.75rem);
     letter-spacing: 0.12em;
     color: rgba(255, 255, 255, 0.5);
 }
 
 /* ================= ANIMATIONS ================= */
-
-@keyframes pop {
-    0% { transform: scale(0.9); }
-    100% { transform: scale(1); }
-}
 
 @keyframes glowPulse {
     0% {
@@ -560,8 +1295,8 @@ button:focus-visible {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #9fe7ff;
-    box-shadow: 0 0 10px #9fe7ff;
+    background: var(--operator-color);
+    box-shadow: 0 0 10px var(--operator-color);
     pointer-events: none;
     z-index: 9999;
 }
@@ -580,164 +1315,1632 @@ button:focus-visible {
 
 /* ================= RESPONSIVE ================= */
 
-@media (max-width: 900px) {
-    .main-section {
-        padding: 18px 18px 6px;
-    }
-
-    .calculator {
-        width: min(410px, 100%);
-        min-height: min(800px, calc(100vh - 118px));
-        padding: 24px 22px 18px;
-    }
-
-    #display {
-        height: 190px;
-        padding: 20px 16px;
-    }
-
-    #display .bottom {
-        font-size: 2.2rem;
-    }
-
-    .buttons {
-        gap: 14px;
-    }
-
-    button {
-        height: 68px;
-    }
-
-    .equal {
-        width: 68px;
-        height: 68px;
+@media (max-width: 520px) {
+    .side-panel {
+        padding-top: 74px;
+        width: 100vw;
     }
 }
 
-@media (max-width: 520px) {
+/* Nine controls plus the wordmark cannot share one line anywhere between a
+   large phone and tablet-portrait (iPad mini is 768px, iPad Air 820px), so
+   in that whole range the header becomes two deliberate rows — title above,
+   tools given the full width below — rather than however many ragged,
+   unevenly filled rows flex-wrap happens to produce. */
+@media (max-width: 900px) {
     .app-header {
-        margin: 16px 16px 6px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
     }
 
     .app-title {
-        font-size: 0.72rem;
-        letter-spacing: 0.22em;
+        letter-spacing: 0.18em;
+        font-size: 0.68rem;
     }
 
-    .icon-btn {
-        width: 34px;
-        height: 34px;
-    }
-
-    .main-section {
-        padding: 10px 14px 4px;
-    }
-
-    .calculator {
+    /* Right-clustered rather than space-between: the calculator's row is
+       full of controls and reads fine either way, but geometry (5 controls)
+       and privacy (3) would otherwise be stretched into isolated islands
+       with awkward gaps between them. flex-end keeps every page's tools
+       looking like one deliberate group regardless of how many it has. */
+    .header-tools {
         width: 100%;
-        min-height: min(700px, calc(100vh - 96px));
-        padding: 18px 14px 12px;
+        flex-wrap: nowrap;
+        gap: clamp(4px, 1vw, 8px);
     }
 
-    #display {
-        height: 140px;
-        padding: 16px 14px;
-        font-size: 1.7rem;
-        margin-bottom: 14px;
-    }
-
-    #display .top {
-        font-size: 0.8rem;
-        letter-spacing: 0.08em;
-    }
-
-    #display .bottom {
-        font-size: 1.8rem;
-    }
-
-    .calculator-divider {
-        max-width: 170px;
-        margin-bottom: 16px;
-    }
-
-    .sci-buttons {
-        gap: 8px;
-        margin-bottom: 14px;
-    }
-
-    .sci {
-        height: 38px;
-        font-size: 0.78rem;
-        border-radius: 12px;
-    }
-
-    .buttons {
-        gap: 10px;
-    }
-
-    button {
-        height: 58px;
-        font-size: 1.1rem;
-        border-radius: 20px;
-    }
-
-    .equal {
-        width: 58px;
-        height: 58px;
-    }
-
-    .calc-footer {
-        padding: 8px 14px 12px;
-        font-size: 0.62rem;
-        letter-spacing: 0.08em;
-    }
-
-    .history-panel {
-        padding-top: 70px;
+    .chip {
+        padding: 0 7px;
+        letter-spacing: 0.04em;
     }
 }
 
-@media (max-width: 380px) {
-    .main-section {
-        padding: 8px 10px 2px;
+@media (max-height: 620px) {
+    .app-header {
+        margin-bottom: 4px;
     }
 
-    .calculator {
-        min-height: min(640px, calc(100vh - 88px));
-        padding: 16px 10px 10px;
+    .calculator-divider {
+        margin-bottom: 8px;
     }
 
-    #display {
-        height: 126px;
-        border-radius: 22px;
+    .sci-buttons {
+        margin-bottom: 8px;
+    }
+}
+
+/* =====================================================================
+   MISSION CONTROL
+   ===================================================================== */
+
+.mission-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(10px, 3vw, 28px);
+    background: rgba(2, 5, 10, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.mission-modal.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.mission-box {
+    width: min(560px, 100%);
+    max-height: 92vh;
+    max-height: 92dvh;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: clamp(16px, 3vw, 24px);
+    border-radius: clamp(18px, 3vw, 26px);
+    border: 1px solid rgba(159, 231, 255, 0.2);
+    background: rgba(8, 16, 28, 0.92);
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+    transform: translateY(12px) scale(0.98);
+    transition: transform 0.25s ease;
+}
+
+.mission-modal.open .mission-box {
+    transform: translateY(0) scale(1);
+}
+
+.mission-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+
+.mission-header h2 {
+    font-size: clamp(0.9rem, 3vw, 1.05rem);
+    letter-spacing: 0.22em;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.mission-intro {
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--muted-color);
+    flex-shrink: 0;
+}
+
+.mission-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    padding: 4px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    flex-shrink: 0;
+}
+
+.mission-tab {
+    height: 34px;
+    padding: 0 4px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted-color);
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.mission-tab.active {
+    background: rgba(159, 231, 255, 0.14);
+    color: var(--operator-color);
+}
+
+.mission-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.mission-pane {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.mission-pane.active {
+    display: flex;
+}
+
+#mission-form {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+}
+
+.field textarea {
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(159, 231, 255, 0.18);
+    background: rgba(8, 16, 28, 0.75);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 0.85rem;
+    text-transform: none;
+    letter-spacing: normal;
+    resize: vertical;
+    width: 100%;
+}
+
+.field textarea:focus {
+    outline: 2px solid var(--operator-color);
+    outline-offset: 1px;
+}
+
+.mission-submit {
+    height: 44px;
+    border: none;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent-color), #ff7a3d);
+    color: #12151c;
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(248, 164, 95, 0.28);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mission-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px rgba(248, 164, 95, 0.4);
+}
+
+.mission-feedback {
+    font-size: 0.78rem;
+    color: var(--operator-color);
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.mission-feedback.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.mission-subhead {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted-color);
+    font-weight: 600;
+}
+
+.mission-hint {
+    font-size: 0.75rem;
+    line-height: 1.55;
+    color: var(--muted-color);
+}
+
+.mission-hint strong {
+    color: var(--accent-color);
+}
+
+.mission-empty {
+    font-size: 0.8rem;
+    color: var(--muted-color);
+    text-align: center;
+    padding: 16px 0;
+}
+
+/* ---- rank card ---- */
+
+.rank-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 16px;
+    background: rgba(159, 231, 255, 0.07);
+    border: 1px solid rgba(159, 231, 255, 0.16);
+}
+
+.rank-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.rank-icon {
+    font-size: 1.9rem;
+    line-height: 1;
+}
+
+.rank-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.rank-xp {
+    font-size: 0.75rem;
+    color: var(--operator-color);
+}
+
+.rank-bar {
+    height: 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.rank-bar-fill {
+    height: 100%;
+    width: 4%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--operator-color), var(--accent-color));
+    transition: width 0.5s ease;
+}
+
+.rank-next {
+    font-size: 0.72rem;
+    color: var(--muted-color);
+}
+
+/* ---- badges ---- */
+
+.badge-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+}
+
+.badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid transparent;
+    opacity: 0.45;
+    transition: opacity 0.2s ease, border-color 0.2s ease;
+}
+
+.badge.earned {
+    opacity: 1;
+    border-color: rgba(248, 164, 95, 0.4);
+    background: rgba(248, 164, 95, 0.1);
+}
+
+.badge-icon { font-size: 1.15rem; }
+
+.badge-name {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.badge-hint {
+    font-size: 0.62rem;
+    color: var(--muted-color);
+    margin-left: auto;
+    text-align: right;
+}
+
+/* ---- my entries ---- */
+
+.entry-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.entry {
+    padding: 11px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.entry-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.entry-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-color);
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.entry-status {
+    font-size: 0.6rem;
+    padding: 3px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--muted-color);
+}
+
+.entry-status.status-sent {
+    background: rgba(159, 231, 255, 0.16);
+    color: var(--operator-color);
+}
+
+.entry-status.status-accepted {
+    background: rgba(248, 164, 95, 0.18);
+    color: var(--accent-color);
+}
+
+.entry-detail {
+    font-size: 0.74rem;
+    line-height: 1.5;
+    color: var(--muted-color);
+    overflow-wrap: anywhere;
+}
+
+.entry-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.text-btn.danger { color: #ff8080; }
+
+/* This is the one click that actually delivers a report — everything
+   before it only saved a draft on this device. It needs to read as the
+   primary action, not a peer of the quiet "Delete" link beside it. */
+.entry-send {
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(248, 164, 95, 0.14);
+    border: 1px solid rgba(248, 164, 95, 0.4);
+    color: var(--accent-color);
+    font-weight: 700;
+}
+
+.entry-send:hover {
+    background: rgba(248, 164, 95, 0.24);
+    text-decoration: none;
+}
+
+@keyframes entryArrive {
+    0% { box-shadow: 0 0 0 rgba(248, 164, 95, 0); background: rgba(248, 164, 95, 0.16); }
+    50% { box-shadow: 0 0 0 6px rgba(248, 164, 95, 0.12); }
+    100% { box-shadow: 0 0 0 rgba(248, 164, 95, 0); background: rgba(255, 255, 255, 0.03); }
+}
+
+.entry.arrived {
+    animation: entryArrive 1.4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .entry.arrived { animation: none; }
+}
+
+/* ---- hall of fame ---- */
+
+.hall-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.hall-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid transparent;
+}
+
+.hall-row.top {
+    border-color: rgba(248, 164, 95, 0.3);
+    background: rgba(248, 164, 95, 0.07);
+}
+
+.hall-place {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(159, 231, 255, 0.14);
+    color: var(--operator-color);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.hall-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.hall-name {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--text-color);
+    overflow-wrap: anywhere;
+}
+
+.hall-rank { font-size: 0.68rem; color: var(--muted-color); }
+
+.hall-stats { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+
+.hall-xp {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--accent-color);
+}
+
+.hall-accepted { font-size: 0.64rem; color: var(--muted-color); }
+
+.hall-tags {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.hall-tag {
+    font-size: 0.62rem;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(159, 231, 255, 0.1);
+    color: var(--operator-color);
+}
+
+.hall-updated {
+    font-size: 0.66rem;
+    color: var(--muted-color);
+    text-align: center;
+}
+
+@media (max-width: 520px) {
+    .mission-box { max-height: 96dvh; }
+    .badge-list { grid-template-columns: 1fr; }
+}
+
+/* =====================================================================
+   STAR MAP — accepted contributions each become a star in the sky
+   ===================================================================== */
+
+.star-map {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+
+.contrib-star {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
+}
+
+.contrib-star .core {
+    width: var(--star-size, 7px);
+    height: var(--star-size, 7px);
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow:
+        0 0 8px rgba(159, 231, 255, 0.9),
+        0 0 20px rgba(159, 231, 255, 0.55),
+        0 0 36px rgba(248, 164, 95, 0.28);
+    animation: starBreathe 4s ease-in-out infinite alternate;
+    animation-delay: var(--star-delay, 0s);
+    flex-shrink: 0;
+}
+
+.contrib-star .label {
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    color: rgba(245, 251, 255, 0.85);
+    white-space: nowrap;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+}
+
+.contrib-star.right { flex-direction: row-reverse; }
+
+.contrib-star:hover .label,
+.contrib-star:focus-visible .label,
+.contrib-star.revealed .label {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.contrib-star:hover .core,
+.contrib-star:focus-visible .core {
+    box-shadow:
+        0 0 14px rgba(255, 255, 255, 1),
+        0 0 30px rgba(159, 231, 255, 0.8),
+        0 0 60px rgba(248, 164, 95, 0.5);
+}
+
+.contrib-star:focus-visible {
+    outline: 2px solid var(--operator-color);
+    outline-offset: 6px;
+    border-radius: 4px;
+}
+
+@keyframes starBreathe {
+    0% { opacity: 0.55; transform: scale(0.85); }
+    100% { opacity: 1; transform: scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .contrib-star .core { animation: none; }
+}
+
+/* on a narrow screen the calculator fills the centre; star labels shrink
+   so they stay legible in the strip that's left */
+@media (max-width: 860px) {
+    .contrib-star .label { font-size: 0.6rem; }
+}
+
+/* =====================================================================
+   ACCESSIBILITY — the answer to "the keys and text are too small"
+   ===================================================================== */
+
+body.size-large {
+    --btn-h: clamp(52px, 9.6vh, 78px);
+    --sci-h: clamp(36px, 5.8vh, 48px);
+    --display-h: clamp(104px, 15vh, 172px);
+}
+
+/* only the keypad scales — header controls are chrome, not content, and
+   growing them pushed the header into horizontal overflow on phones */
+body.size-large .buttons button { font-size: clamp(1.05rem, 3.8vw, 1.45rem); }
+
+body.size-large .sci { font-size: clamp(0.8rem, 2.2vw, 1rem); }
+body.size-large #display .top { font-size: clamp(0.98rem, 3vw, 1.3rem); }
+body.size-large #display .bottom { font-size: clamp(1.75rem, 7vw, 2.9rem); }
+body.size-large .app-title { font-size: clamp(0.75rem, 2.5vw, 0.95rem); }
+
+body.size-xlarge {
+    --btn-h: clamp(60px, 11vh, 88px);
+    --sci-h: clamp(42px, 6.6vh, 54px);
+    --display-h: clamp(118px, 17vh, 190px);
+}
+
+body.size-xlarge .buttons button { font-size: clamp(1.2rem, 4.4vw, 1.65rem); }
+
+body.size-xlarge .sci { font-size: clamp(0.92rem, 2.6vw, 1.12rem); }
+body.size-xlarge #display .top { font-size: clamp(1.1rem, 3.4vw, 1.45rem); }
+body.size-xlarge #display .bottom { font-size: clamp(2rem, 8vw, 3.2rem); }
+body.size-xlarge .app-title { font-size: clamp(0.85rem, 2.8vw, 1.05rem); }
+
+/* long results shrink to fit rather than getting clipped */
+#display .bottom.shrink-1 { font-size: clamp(1.2rem, 4.6vw, 1.9rem); }
+#display .bottom.shrink-2 { font-size: clamp(1rem, 3.6vw, 1.5rem); }
+#display .bottom.shrink-3 {
+    font-size: clamp(0.82rem, 2.9vw, 1.18rem);
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    line-height: 1.25;
+}
+
+/* =====================================================================
+   TOOLS PANEL
+   ===================================================================== */
+
+#pane-tools {
+    overflow-y: auto;
+    gap: 10px;
+}
+
+.tool {
+    border: 1px solid rgba(159, 231, 255, 0.14);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 10px 12px;
+}
+
+.tool > summary {
+    cursor: pointer;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--operator-color);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tool > summary::-webkit-details-marker { display: none; }
+
+.tool > summary::before {
+    content: "▸";
+    transition: transform 0.2s ease;
+    display: inline-block;
+}
+
+.tool[open] > summary::before { transform: rotate(90deg); }
+
+.tool > *:not(summary) { margin-top: 10px; }
+
+.tool-result {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tool-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.tool-key {
+    font-size: 0.68rem;
+    color: var(--muted-color);
+    flex-shrink: 0;
+}
+
+.tool-val {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-color);
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+/* =====================================================================
+   "WHAT IF?" SLIDER
+   ===================================================================== */
+
+.num-chip {
+    height: auto;
+    padding: 1px 4px;
+    margin: 0 1px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    border-bottom: 1px dashed rgba(159, 231, 255, 0.35);
+    transition: background 0.15s ease, color 0.15s ease;
+    overflow: visible;
+}
+
+.num-chip:hover {
+    background: rgba(159, 231, 255, 0.14);
+    color: var(--operator-color);
+    transform: none;
+    box-shadow: none;
+}
+
+.num-chip::before { display: none; }
+
+.num-chip.active {
+    background: rgba(248, 164, 95, 0.22);
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+}
+
+.whatif {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    margin-bottom: clamp(8px, 1.6vh, 14px);
+    border-radius: 14px;
+    background: rgba(248, 164, 95, 0.09);
+    border: 1px solid rgba(248, 164, 95, 0.28);
+    animation: slideDown 0.2s ease;
+}
+
+.whatif[hidden] { display: none; }
+
+.whatif-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.whatif-label {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--accent-color);
+}
+
+.whatif-bounds {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.62rem;
+    color: var(--muted-color);
+}
+
+#whatif-range {
+    width: 100%;
+    accent-color: var(--accent-color);
+    cursor: pointer;
+}
+
+/* =====================================================================
+   HELP PANEL
+   ===================================================================== */
+
+#help-open {
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: inherit;
+}
+
+/* a single, quiet nudge for first-time visitors */
+#help-open.nudge {
+    animation: helpNudge 2s ease-in-out 3;
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+@keyframes helpNudge {
+    0%, 100% { box-shadow: 0 0 0 rgba(248, 164, 95, 0); }
+    50% { box-shadow: 0 0 0 8px rgba(248, 164, 95, 0.16); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #help-open.nudge { animation: none; }
+}
+
+.help-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.help-item {
+    padding: 11px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.help-item h3 {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.help-key {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(159, 231, 255, 0.14);
+    border: 1px solid rgba(159, 231, 255, 0.28);
+    color: var(--operator-color);
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.help-item p {
+    font-size: 0.74rem;
+    line-height: 1.5;
+    color: var(--muted-color);
+}
+
+.help-item code {
+    font-family: inherit;
+    font-size: 0.72rem;
+    padding: 6px 9px;
+    border-radius: 8px;
+    background: rgba(8, 16, 28, 0.7);
+    color: var(--operator-color);
+    overflow-wrap: anywhere;
+}
+
+.shortcut-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 5px;
+}
+
+.shortcut-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.71rem;
+    color: var(--muted-color);
+}
+
+kbd {
+    font-family: inherit;
+    font-size: 0.66rem;
+    padding: 3px 7px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-bottom-width: 2px;
+    color: var(--text-color);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* =====================================================================
+   ANALYTIC GEOMETRY PAGE
+   ===================================================================== */
+
+.geo-page .main-section { display: none; }
+
+.geo-main {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+    gap: clamp(10px, 1.6vw, 18px);
+    padding: 0 clamp(10px, 2.4vw, 24px) clamp(10px, 2vh, 20px);
+}
+
+.geo-side {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+    padding: clamp(12px, 1.6vw, 18px);
+    border-radius: clamp(16px, 2vw, 22px);
+    border: 1px solid rgba(159, 231, 255, 0.10);
+    background: linear-gradient(180deg, rgba(10, 18, 32, 0.55), rgba(6, 11, 20, 0.66));
+    backdrop-filter: blur(18px) saturate(115%);
+    -webkit-backdrop-filter: blur(18px) saturate(115%);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    overflow-y: auto;
+}
+
+#obj-form { display: flex; flex-direction: column; gap: 10px; }
+
+#obj-input {
+    height: 42px;
+    padding: 0 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(159, 231, 255, 0.2);
+    background: rgba(4, 9, 18, 0.8);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 0.92rem;
+    width: 100%;
+}
+
+#obj-input:focus {
+    outline: 2px solid var(--operator-color);
+    outline-offset: 1px;
+}
+
+.geo-error {
+    font-size: 0.75rem;
+    color: #ff9a8a;
+    opacity: 0;
+    transform: translateY(-3px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    min-height: 1em;
+}
+
+.geo-error.show { opacity: 1; transform: translateY(0); }
+
+.geo-samples { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.sample {
+    height: 30px;
+    padding: 0 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(159, 231, 255, 0.16);
+    background: var(--sci-bg);
+    color: var(--operator-color);
+    font-family: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.sample:hover { background: var(--sci-hover); transform: translateY(-1px); }
+
+.obj-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+}
+
+.obj {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 10px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.035);
+    transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.obj:hover { background: rgba(159, 231, 255, 0.08); }
+.obj.off { opacity: 0.42; }
+
+.obj-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 5px;
+    border: none;
+    background: var(--c);
+    cursor: pointer;
+    padding: 0;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--c) 55%, transparent);
+}
+
+.obj.off .obj-swatch { background: transparent; border: 2px solid var(--c); box-shadow: none; }
+
+.obj-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-color);
+    overflow-wrap: anywhere;
+}
+
+.obj-kind {
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-color);
+    white-space: nowrap;
+}
+
+.obj-remove {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted-color);
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 0;
+}
+
+.obj-remove:hover { background: rgba(255, 120, 120, 0.16); color: #ff9a8a; }
+
+/* ---- the plane ---- */
+
+.geo-plane {
+    position: relative;
+    min-height: 0;
+    border-radius: clamp(16px, 2vw, 22px);
+    border: 1px solid rgba(159, 231, 255, 0.10);
+    background: rgba(4, 8, 16, 0.55);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+}
+
+#plane {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    touch-action: none;
+}
+
+#plane.grabbing { cursor: grabbing; }
+
+#plane:focus-visible {
+    outline: 2px solid var(--operator-color);
+    outline-offset: -2px;
+}
+
+.geo-readout,
+.geo-hint {
+    position: absolute;
+    padding: 5px 10px;
+    border-radius: 8px;
+    background: rgba(4, 9, 18, 0.78);
+    border: 1px solid rgba(159, 231, 255, 0.14);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    color: var(--operator-color);
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.geo-readout { top: 10px; left: 10px; min-height: 1.2em; }
+.geo-hint { bottom: 10px; right: 10px; color: var(--muted-color); }
+
+a.chip {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+@media (max-width: 860px) {
+    .geo-main {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(240px, 44vh) minmax(0, 1fr);
     }
 
-    #display .top {
-        font-size: 0.72rem;
+    /* on a phone the plane deserves the top half, the list scrolls under it */
+    .geo-plane { grid-row: 1; }
+    .geo-side { grid-row: 2; max-height: 46vh; }
+
+    .geo-hint { display: none; }
+}
+
+/* Keyframe animations are already switched off per component above. Colour
+   and opacity transitions are not motion in the vestibular sense, but a
+   reduced-motion request is a request for stillness, so they go too. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        transition-duration: 0.01ms !important;
+    }
+}
+
+a.icon-btn {
+    text-decoration: none;
+    flex-shrink: 0;
+}
+
+/* language picker sits with the header chips */
+.lang-select {
+    height: clamp(28px, 6vw, 34px);
+    padding: 0 clamp(6px, 1.6vw, 10px);
+    border-radius: 999px;
+    border: 1px solid rgba(159, 231, 255, 0.25);
+    background: var(--sci-bg);
+    color: var(--operator-color);
+    font-family: inherit;
+    font-size: clamp(0.6rem, 1.8vw, 0.72rem);
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.lang-select:focus-visible {
+    outline: 2px solid var(--operator-color);
+    outline-offset: 2px;
+}
+
+/* =====================================================================
+   PRIVACY — consent banner, settings dialog and the notice page.
+
+   The banner is deliberately not a wall: it sits at the bottom, it does not
+   block the calculator, and the two choices carry identical visual weight so
+   declining is exactly as easy as agreeing.
+   ===================================================================== */
+
+.privacy-banner {
+    position: fixed;
+    left: 50%;
+    bottom: clamp(10px, 2.5vh, 24px);
+    z-index: 120;
+    width: min(720px, calc(100% - 24px));
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(10px, 2vw, 20px);
+    padding: clamp(14px, 2.4vw, 20px) clamp(16px, 2.6vw, 24px);
+    border-radius: clamp(16px, 2.4vw, 22px);
+    border: 1px solid rgba(159, 231, 255, 0.22);
+    background: rgba(8, 16, 28, 0.93);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 26px 60px rgba(0, 0, 0, 0.55);
+    /* Never take more than a third of a short screen, or the keypad behind it
+       cannot be scrolled clear. The wording scrolls inside instead. */
+    max-height: 38vh;
+    max-height: 38dvh;
+    transform: translate(-50%, calc(100% + 40px));
+    opacity: 0;
+    transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease;
+}
+
+.privacy-banner.show {
+    transform: translate(-50%, 0);
+    opacity: 1;
+}
+
+/* The banner floats over the page, so on a phone it would sit on top of the
+   bottom key rows. While it is up the content is given exactly its height as
+   extra bottom room, which keeps every key reachable without the notice
+   having to become a modal wall. */
+body.privacy-banner-up {
+    padding-bottom: calc(var(--privacy-banner-h, 0px) + clamp(12px, 3vh, 24px));
+}
+
+body.privacy-banner-up .calc-footer {
+    visibility: hidden;
+}
+
+.privacy-banner-body {
+    flex: 1 1 300px;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.privacy-banner h2 {
+    font-size: clamp(0.82rem, 2.4vw, 0.95rem);
+    letter-spacing: 0.14em;
+    font-weight: 700;
+    color: var(--text-color);
+    margin-bottom: 6px;
+}
+
+.privacy-banner p {
+    font-size: clamp(0.7rem, 1.9vw, 0.78rem);
+    line-height: 1.6;
+    color: var(--muted-color);
+}
+
+/* Specificity, not !important: ".privacy-banner p" is a class+element
+   selector, so a bare ".privacy-banner-note" class needs help to win. */
+.privacy-banner p.privacy-banner-note {
+    margin-top: 6px;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    color: var(--operator-color);
+    opacity: 0.85;
+}
+
+/* The choices must never scroll out of reach, whatever the wording does. */
+.privacy-banner-actions {
+    flex: 0 1 auto;
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Both buttons share one class, so "essentials only" can never end up quieter
+   than "accept" by accident — only the accent fill differs. */
+.privacy-btn {
+    height: 42px;
+    padding: 0 18px;
+    border-radius: 13px;
+    border: 1px solid rgba(159, 231, 255, 0.35);
+    background: rgba(159, 231, 255, 0.08);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.privacy-btn:hover {
+    background: rgba(159, 231, 255, 0.16);
+    transform: translateY(-1px);
+}
+
+.privacy-btn-accept {
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--accent-color), #ff7a3d);
+    color: #12151c;
+    box-shadow: 0 10px 22px rgba(248, 164, 95, 0.26);
+}
+
+.privacy-btn-accept:hover {
+    background: linear-gradient(135deg, #ffb682, #ff7a3d);
+    box-shadow: 0 14px 28px rgba(248, 164, 95, 0.38);
+}
+
+.privacy-link {
+    border: none;
+    background: none;
+    color: var(--operator-color);
+    font-family: inherit;
+    font-size: 0.74rem;
+    letter-spacing: 0.04em;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    padding: 6px 4px;
+}
+
+.privacy-link:hover {
+    color: var(--text-color);
+}
+
+/* ---------- settings dialog ---------- */
+
+.privacy-box {
+    gap: 14px;
+    overflow-y: auto;
+}
+
+/* The box is a column flex container, so its children would otherwise be
+   squashed to fit rather than letting the box scroll — which flattened the
+   save button to zero height on shorter screens. */
+.privacy-box > * {
+    flex-shrink: 0;
+}
+
+.privacy-lead {
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: var(--muted-color);
+}
+
+.privacy-facts {
+    list-style: none;
+    display: grid;
+    gap: 6px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(159, 231, 255, 0.16);
+    background: rgba(159, 231, 255, 0.05);
+}
+
+.privacy-facts li {
+    position: relative;
+    padding-left: 20px;
+    font-size: 0.74rem;
+    line-height: 1.5;
+    color: var(--text-color);
+}
+
+.privacy-facts li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--operator-color);
+    font-weight: 700;
+}
+
+.privacy-rows {
+    display: grid;
+    gap: 10px;
+}
+
+.privacy-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.privacy-row-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.privacy-row h3 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--text-color);
+    margin-bottom: 4px;
+}
+
+.privacy-row p {
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: var(--muted-color);
+}
+
+.privacy-keys {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.privacy-keys code {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+    font-size: 0.62rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(159, 231, 255, 0.1);
+    color: var(--operator-color);
+}
+
+.privacy-row-control {
+    flex-shrink: 0;
+    padding-top: 2px;
+}
+
+.privacy-always {
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--operator-color);
+    opacity: 0.8;
+}
+
+.privacy-switch {
+    position: relative;
+    display: block;
+    width: 46px;
+    height: 26px;
+    cursor: pointer;
+}
+
+.privacy-switch input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+}
+
+/* The track paints over the checkbox, so it must not swallow the click —
+   otherwise the toggle only responds to the few pixels the input peeks through. */
+.privacy-slider {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: 999px;
+    border: 1px solid rgba(159, 231, 255, 0.3);
+    background: rgba(255, 255, 255, 0.06);
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.privacy-slider::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--muted-color);
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease;
+}
+
+.privacy-switch input:checked + .privacy-slider {
+    background: rgba(248, 164, 95, 0.28);
+    border-color: var(--accent-color);
+}
+
+.privacy-switch input:checked + .privacy-slider::after {
+    transform: translateX(20px);
+    background: var(--accent-color);
+}
+
+.privacy-switch input:focus-visible + .privacy-slider {
+    outline: 2px solid var(--operator-color);
+    outline-offset: 3px;
+}
+
+.privacy-footprint {
+    font-size: 0.72rem;
+    color: var(--muted-color);
+}
+
+.privacy-footprint strong {
+    color: var(--operator-color);
+}
+
+.privacy-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+}
+
+.privacy-danger {
+    color: #ff8a8a !important;
+}
+
+/* ---------- footer link ---------- */
+
+.privacy-mount {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.privacy-sep {
+    opacity: 0.4;
+}
+
+.privacy-reopen {
+    border: none;
+    background: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.privacy-mount a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.privacy-reopen:hover,
+.privacy-mount a:hover {
+    color: var(--operator-color);
+}
+
+/* ---------- notice page ---------- */
+
+.privacy-page .privacy-doc {
+    width: min(760px, 100%);
+    margin: 0 auto;
+    padding: clamp(18px, 4vw, 34px);
+    border-radius: clamp(18px, 3vw, 26px);
+    border: 1px solid rgba(159, 231, 255, 0.18);
+    background: rgba(8, 16, 28, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
+}
+
+.privacy-doc .privacy-updated {
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    color: var(--muted-color);
+    margin-bottom: 20px;
+}
+
+.privacy-doc section {
+    margin-bottom: 22px;
+}
+
+.privacy-doc h2 {
+    font-size: clamp(0.85rem, 2.4vw, 1rem);
+    letter-spacing: 0.14em;
+    font-weight: 700;
+    color: var(--operator-color);
+    margin-bottom: 8px;
+}
+
+.privacy-doc p {
+    font-size: 0.82rem;
+    line-height: 1.75;
+    color: rgba(245, 251, 255, 0.82);
+}
+
+.privacy-table-wrap {
+    overflow-x: auto;
+    margin-top: 12px;
+}
+
+.privacy-doc table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.74rem;
+}
+
+.privacy-doc th,
+.privacy-doc td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    vertical-align: top;
+}
+
+.privacy-doc th {
+    color: var(--operator-color);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+}
+
+.privacy-doc td {
+    color: rgba(245, 251, 255, 0.78);
+    line-height: 1.55;
+}
+
+.privacy-doc td code {
+    display: inline-block;
+    margin: 2px 3px 2px 0;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+    font-size: 0.66rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(159, 231, 255, 0.1);
+    color: var(--operator-color);
+}
+
+.privacy-page main {
+    padding: clamp(12px, 3vw, 28px);
+    overflow-y: auto;
+}
+
+@media (max-width: 560px) {
+    .privacy-banner {
+        gap: 12px;
     }
 
-    #display .bottom {
-        font-size: 1.55rem;
+    .privacy-banner-actions {
+        width: 100%;
     }
 
-    .sci {
-        height: 34px;
-        font-size: 0.7rem;
-        border-radius: 10px;
+    .privacy-btn {
+        flex: 1 1 140px;
     }
 
-    .buttons {
-        gap: 8px;
-    }
-
-    button {
-        height: 52px;
-        font-size: 1rem;
-        border-radius: 18px;
-    }
-
-    .equal {
-        width: 52px;
-        height: 52px;
+    /* A phone-sized banner carrying the full paragraph swallowed a third of
+       the screen. The first layer is trimmed to its essentials; the complete
+       wording is one tap away in "choose what is stored" and on the notice
+       page, which is the layered approach regulators expect. */
+    .privacy-banner-body > p:not(.privacy-banner-note) {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
 }
