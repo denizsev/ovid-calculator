@@ -37,7 +37,7 @@ const STORAGE_GROUPS = [
         id: "preferences",
         required: false,
         keys: ["ovid-angle", "ovid-sound", "ovid-size", "ovid-step",
-               "ovid-fraction", "ovid-seen-help"]
+               "ovid-fraction", "ovid-seen-help", "ovid-theme"]
     },
     {
         id: "work",
