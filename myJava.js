@@ -626,7 +626,15 @@ function clearStepAnimation() {
 function commitResult(previous, result) {
     const formatted = formatQuantity(result);
 
-    exprLine.textContent = previous;
+    // Rendered as a .num-chip (just inert) rather than bare text so this
+    // line keeps the exact same box height it had while the expression was
+    // still live chips — see the .num-chip.committed rule for why.
+    exprLine.textContent = "";
+    const committed = document.createElement("span");
+    committed.className = "num-chip committed";
+    committed.textContent = previous;
+    exprLine.appendChild(committed);
+
     resultLine.textContent = formatted;
     resultLine.classList.remove("preview");
     fitResult();
