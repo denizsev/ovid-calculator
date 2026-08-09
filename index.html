@@ -1,29 +1,79 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ovid Calculator</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <meta name="description" data-i18n="app.description" content="Ovid Calculator — a space-themed scientific calculator with live results, unit-aware maths, exact fractions and offline support.">
+    <meta name="theme-color" content="#05070d">
+    <title data-i18n="app.pageTitle">Ovid Calculator</title>
+    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<video autoplay muted loop playsinline id="bg-video">
-   <source src="images/spacetravel-loop.mp4" type="video/mp4">
-</video>
+<!-- ================= SKY =================
+     The drawn sky that replaced the video. Nebula clouds, dust lanes and
+     diffraction-spiked stars are pure CSS; the canvas layer on top adds the
+     parallax motion. A few KB instead of 16 MB. -->
+<div class="sky" aria-hidden="true">
+  <div class="base"></div>
+  <div class="bleed anim"></div>
+  <div class="band anim"></div>
+  <div class="neb neb-a anim"></div>
+  <div class="neb neb-b anim"></div>
+  <div class="wisp wisp-a anim"></div>
+  <div class="wisp wisp-b anim"></div>
+  <div class="neb neb-c anim"></div>
+  <div class="dust anim"></div>
+  <div class="cluster"></div>
+  <div class="heroes">
+    <i class="hero h1"></i><i class="hero h2"></i><i class="hero h3"></i>
+    <i class="hero h4"></i><i class="hero h5"></i><i class="hero h6"></i>
+    <i class="hero h7"></i>
+  </div>
+  <div class="graticule"></div>
+  <div class="grain"></div>
+  <div class="grain-2"></div>
+  <div class="vignette"></div>
+</div>
+
+<div id="skyflow" aria-hidden="true">
+  <canvas id="flow-dust"></canvas>
+  <canvas id="flow-stars"></canvas>
+</div>
+
+<!-- Accepted contributions each become a named star here -->
+<div class="star-map" id="star-map" aria-hidden="true"></div>
 
 <header class="app-header">
-    <div class="app-title">OVID CALCULATOR</div>
+    <h1 class="app-title" data-i18n="app.title">OVID CALCULATOR</h1>
 
-    <button id="history-toggle" class="icon-btn" type="button" aria-label="Geçmişi göster" aria-expanded="false" title="Geçmiş">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="9"></circle>
-            <polyline points="12 7 12 12 15 14"></polyline>
-        </svg>
-    </button>
+    <div class="header-tools">
+        <span id="lang-mount"></span>
+        <button id="angle-toggle" class="chip" type="button" title="Angle unit (degrees / radians)" data-i18n-title="chip.angle">DEG</button>
+        <button id="step-toggle" class="chip" type="button" title="Warp mode: reveal the result step by step" data-i18n-title="chip.step" aria-pressed="false">⇢</button>
+        <button id="fraction-toggle" class="chip" type="button" title="Fraction mode: show results as exact fractions" data-i18n-title="chip.fraction" aria-pressed="false" aria-label="Fraction mode" data-i18n-aria-label="chip.fractionLabel">a/b</button>
+        <button id="sound-toggle" class="chip" type="button" title="Sound on/off" data-i18n-title="chip.sound" aria-pressed="true">🔊</button>
+        <button id="size-toggle" class="chip" type="button" title="Text and key size" data-i18n-title="chip.size" aria-label="Change text and key size" data-i18n-aria-label="chip.sizeLabel">A</button>
+        <a class="icon-btn" href="geometri.html" aria-label="Analytic geometry" data-i18n-aria-label="chip.geometryLabel" title="Analytic geometry — plot graphs" data-i18n-title="chip.geometry">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 21V3M3 21h18"></path>
+                <path d="M6 15c3 0 4-9 7-9s4 6 8 6"></path>
+            </svg>
+        </a>
+        <button id="help-open" class="icon-btn" type="button" aria-label="Help and shortcuts" data-i18n-aria-label="chip.helpLabel" aria-expanded="false" title="How does this work?" data-i18n-title="chip.help">?</button>
+        <button id="mission-open" class="icon-btn" type="button" aria-label="Open Mission Control" data-i18n-aria-label="chip.missionLabel" aria-expanded="false" title="Mission Control — report a bug, send an idea" data-i18n-title="chip.mission">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2l2.9 6.3 6.6.8-4.9 4.6 1.3 6.5L12 17l-5.9 3.2 1.3-6.5L2.5 9.1l6.6-.8z"></path>
+            </svg>
+        </button>
+        <button id="panel-toggle" class="icon-btn" type="button" aria-label="Open panels" data-i18n-aria-label="chip.panelLabel" aria-expanded="false" title="History, constants and converter" data-i18n-title="chip.panel">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9"></circle>
+                <polyline points="12 7 12 12 15 14"></polyline>
+            </svg>
+        </button>
+    </div>
 </header>
 
 <main class="main-section">
@@ -32,79 +82,402 @@
 
     <!-- DISPLAY -->
     <div id="display">
-        <div class="memory-indicator" id="memory-indicator">M</div>
+        <div class="display-badges">
+            <span class="memory-indicator" id="memory-indicator" title="Value held in memory" data-i18n-title="key.memoryIndicator">M</span>
+            <span class="angle-indicator" id="angle-indicator">DEG</span>
+        </div>
         <div class="top" id="expr-line">0</div>
-        <div class="bottom copyable" id="result-line" title="Kopyalamak için tıkla">0</div>
+        <div class="bottom copyable" id="result-line" title="Click to copy" data-i18n-title="key.copyResult">0</div>
+        <div class="sr-only" id="a11y-result" role="status" aria-live="polite"></div>
+    </div>
+
+    <!-- "What if?" — drag a number and watch the result move live -->
+    <div class="whatif" id="whatif" hidden>
+        <div class="whatif-head">
+            <span class="whatif-label" id="whatif-label">x</span>
+            <button id="whatif-close" class="text-btn" type="button" aria-label="Close slider" data-i18n-aria-label="key.sliderClose">✕</button>
+        </div>
+        <input id="whatif-range" type="range" aria-label="Change the value" data-i18n-aria-label="key.sliderValue">
+        <div class="whatif-bounds">
+            <span id="whatif-min"></span>
+            <span id="whatif-max"></span>
+        </div>
     </div>
 
     <div class="calculator-divider" aria-hidden="true"></div>
 
-    <!-- SCIENTIFIC / MEMORY ROW -->
+    <!-- SCIENTIFIC PAD (collapsible) -->
     <div class="sci-buttons">
         <div class="sci-row memory-row">
-            <button class="sci" id="mc" title="Belleği temizle">MC</button>
-            <button class="sci" id="mr" title="Belleği getir">MR</button>
-            <button class="sci" id="mplus" title="Belleğe ekle">M+</button>
-            <button class="sci" id="mminus" title="Bellekten çıkar">M-</button>
+            <button class="sci" id="mc" title="Clear memory" data-i18n-title="key.mc" aria-label="Clear memory" data-i18n-aria-label="key.mc">MC</button>
+            <button class="sci" id="mr" title="Recall memory" data-i18n-title="key.mr" aria-label="Recall memory" data-i18n-aria-label="key.mr">MR</button>
+            <button class="sci" id="mplus" title="Add to memory" data-i18n-title="key.mplus" aria-label="Add to memory" data-i18n-aria-label="key.mplus">M+</button>
+            <button class="sci" id="mminus" title="Subtract from memory" data-i18n-title="key.mminus" aria-label="Subtract from memory" data-i18n-aria-label="key.mminus">M-</button>
+            <button class="sci sci-expand" id="sci-toggle" type="button" aria-expanded="false" title="Scientific functions" data-i18n-title="key.fxTitle" aria-label="Open scientific functions" data-i18n-aria-label="key.fx">fx</button>
         </div>
+
+        <div class="sci-advanced" id="sci-advanced" hidden>
+            <div class="sci-row function-row">
+                <button class="sci" id="second" type="button" aria-pressed="false" title="Secondary functions" data-i18n-title="key.second">2nd</button>
+                <button class="sci fn" data-fn="sin" data-alt="asin">sin</button>
+                <button class="sci fn" data-fn="cos" data-alt="acos">cos</button>
+                <button class="sci fn" data-fn="tan" data-alt="atan">tan</button>
+                <button class="sci fn" data-fn="ln" data-alt="exp">ln</button>
+            </div>
+            <div class="sci-row function-row">
+                <button class="sci fn" data-fn="log" data-alt="10^">log</button>
+                <button class="sci" id="power" title="Raise to a power" data-i18n-title="key.power" aria-label="Raise to a power" data-i18n-aria-label="key.power">x^y</button>
+                <button class="sci" id="inverse" title="Reciprocal" data-i18n-title="key.inverse" aria-label="Reciprocal" data-i18n-aria-label="key.inverse">1/x</button>
+                <button class="sci" id="factorial" title="Factorial" data-i18n-title="key.factorial" aria-label="Factorial" data-i18n-aria-label="key.factorial">n!</button>
+                <button class="sci" id="mod" title="Remainder (mod)" data-i18n-title="key.mod" aria-label="Remainder (mod)" data-i18n-aria-label="key.mod">mod</button>
+            </div>
+            <div class="sci-row function-row">
+                <button class="sci" id="const-pi" title="Pi" data-i18n-title="key.pi" aria-label="Pi" data-i18n-aria-label="key.pi">π</button>
+                <button class="sci" id="const-e" title="Euler's number" data-i18n-title="key.e" aria-label="Euler's number" data-i18n-aria-label="key.e">e</button>
+                <button class="sci" id="uncert" title="Add an error bar (e.g. 5.2±0.1)" data-i18n-title="key.uncertTitle" aria-label="Add an error bar" data-i18n-aria-label="key.uncert">±σ</button>
+                <button class="sci" id="undo" title="Undo (Ctrl+Z)" data-i18n-title="key.undoTitle" aria-label="Undo" data-i18n-aria-label="key.undo">↶</button>
+                <button class="sci" id="redo" title="Redo (Ctrl+Y)" data-i18n-title="key.redoTitle" aria-label="Redo" data-i18n-aria-label="key.redo">↷</button>
+            </div>
+        </div>
+
         <div class="sci-row function-row">
-            <button class="sci" id="paren-open">(</button>
-            <button class="sci" id="paren-close">)</button>
-            <button class="sci" id="sqrt">√</button>
-            <button class="sci" id="square">x²</button>
-            <button class="sci" id="percent">%</button>
+            <button class="sci" id="paren-open" aria-label="Open bracket" data-i18n-aria-label="key.parenOpen">(</button>
+            <button class="sci" id="paren-close" aria-label="Close bracket" data-i18n-aria-label="key.parenClose">)</button>
+            <button class="sci" id="sqrt" aria-label="Square root" data-i18n-aria-label="key.sqrt">√</button>
+            <button class="sci" id="square" aria-label="Squared" data-i18n-aria-label="key.square">x²</button>
+            <button class="sci" id="percent" aria-label="Percent" data-i18n-aria-label="key.percent">%</button>
         </div>
     </div>
 
     <!-- BUTTONS -->
     <div class="buttons">
 
-        <button id="clear">C</button>
-        <button id="backspace">⌫</button>
-        <button id="plusminus">±</button>
-        <button id="divide" class="operator">÷</button>
+        <button id="clear" aria-label="Clear all" data-i18n-aria-label="key.clear">C</button>
+        <button id="backspace" aria-label="Delete last character" data-i18n-aria-label="key.backspace">⌫</button>
+        <button id="plusminus" aria-label="Change sign" data-i18n-aria-label="key.sign">±</button>
+        <button id="divide" class="operator" aria-label="Divide" data-i18n-aria-label="key.divide">÷</button>
 
         <button class="num">7</button>
         <button class="num">8</button>
         <button class="num">9</button>
-        <button id="times" class="operator">×</button>
+        <button id="times" class="operator" aria-label="Multiply" data-i18n-aria-label="key.times">×</button>
 
         <button class="num">4</button>
         <button class="num">5</button>
         <button class="num">6</button>
-        <button id="minus" class="operator">−</button>
+        <button id="minus" class="operator" aria-label="Subtract" data-i18n-aria-label="key.minus">−</button>
 
         <button class="num">1</button>
         <button class="num">2</button>
         <button class="num">3</button>
-        <button id="plus" class="operator">+</button>
+        <button id="plus" class="operator" aria-label="Add" data-i18n-aria-label="key.plus">+</button>
 
         <button class="num zero">0</button>
-        <button class="num">.</button>
-        <button id="equals" class="equal">=</button>
+        <button class="num" aria-label="Decimal separator" data-i18n-aria-label="key.decimal">.</button>
+        <button id="equals" class="equal" aria-label="Equals, calculate" data-i18n-aria-label="key.equals">=</button>
 
     </div>
 
 </section>
 
-<aside class="history-panel" id="history-panel" aria-hidden="true">
-    <div class="history-header">
-        <span>Geçmiş</span>
-        <button id="history-clear" class="text-btn" type="button">Temizle</button>
+<aside class="side-panel" id="side-panel" aria-hidden="true">
+    <div class="panel-tabs" role="tablist">
+        <button class="panel-tab active" data-tab="history" role="tab" aria-selected="true" data-i18n="panel.history">History</button>
+        <button class="panel-tab" data-tab="constants" role="tab" aria-selected="false" data-i18n="panel.constants">Constants</button>
+        <button class="panel-tab" data-tab="units" role="tab" aria-selected="false" data-i18n="panel.units">Units</button>
+        <button class="panel-tab" data-tab="convert" role="tab" aria-selected="false" data-i18n="panel.convert">Converter</button>
+        <button class="panel-tab" data-tab="tools" role="tab" aria-selected="false" data-i18n="panel.tools">Tools</button>
     </div>
-    <ul id="history-list" class="history-list"></ul>
+
+    <div class="panel-body">
+        <section class="panel-pane active" id="pane-history" role="tabpanel">
+            <div class="panel-head">
+                <span data-i18n="panel.recent">Recent calculations</span>
+                <button id="history-clear" class="text-btn" type="button" data-i18n="panel.clear">Clear</button>
+            </div>
+            <ul id="history-list" class="history-list"></ul>
+        </section>
+
+        <section class="panel-pane" id="pane-constants" role="tabpanel">
+            <div class="panel-head"><span data-i18n="panel.constantsHead">Universal constants</span></div>
+            <ul id="constants-list" class="constants-list"></ul>
+        </section>
+
+        <section class="panel-pane" id="pane-units" role="tabpanel">
+            <div class="panel-head"><span data-i18n="panel.unitsHead">Unit-aware maths</span></div>
+            <p class="panel-hint" id="units-hint"></p>
+            <div id="units-groups" class="units-groups"></div>
+        </section>
+
+        <section class="panel-pane" id="pane-convert" role="tabpanel">
+            <div class="panel-head"><span data-i18n="panel.converterHead">Unit converter</span></div>
+
+            <label class="field">
+                <span data-i18n="panel.category">Category</span>
+                <select id="convert-category"></select>
+            </label>
+
+            <label class="field">
+                <span data-i18n="panel.value">Value</span>
+                <input id="convert-input" type="number" inputmode="decimal" value="1">
+            </label>
+
+            <div class="convert-row">
+                <label class="field">
+                    <span data-i18n="panel.from">From</span>
+                    <select id="convert-from"></select>
+                </label>
+                <button id="convert-swap" class="text-btn" type="button" title="Swap units" data-i18n-title="panel.swap">⇅</button>
+                <label class="field">
+                    <span data-i18n="panel.to">To</span>
+                    <select id="convert-to"></select>
+                </label>
+            </div>
+
+            <output class="convert-result" id="convert-result">—</output>
+            <button id="convert-use" class="text-btn" type="button" data-i18n="panel.sendToCalc">Send result to the calculator</button>
+        </section>
+
+        <section class="panel-pane" id="pane-tools" role="tabpanel">
+
+            <details class="tool" open>
+                <summary data-i18n="tools.numberTheory">Number theory</summary>
+                <label class="field">
+                    <span data-i18n="tools.number">Number</span>
+                    <input id="nt-input" type="number" inputmode="numeric" value="360" min="1">
+                </label>
+                <div id="nt-result" class="tool-result"></div>
+
+                <label class="field">
+                    <span data-i18n="tools.secondNumber">Second number (for GCD / LCM)</span>
+                    <input id="nt-second" type="number" inputmode="numeric" value="48" min="1">
+                </label>
+                <div id="nt-pair" class="tool-result"></div>
+            </details>
+
+            <details class="tool">
+                <summary data-i18n="tools.base">Base conversion</summary>
+                <div class="convert-row">
+                    <label class="field">
+                        <span data-i18n="panel.value">Value</span>
+                        <input id="base-input" type="text" inputmode="text" value="255" spellcheck="false">
+                    </label>
+                    <label class="field">
+                        <span data-i18n="tools.inputBase">Input base</span>
+                        <select id="base-from">
+                            <option value="10" data-i18n="tools.decimal">Decimal (10)</option>
+                            <option value="2" data-i18n="tools.binary">Binary (2)</option>
+                            <option value="8" data-i18n="tools.octal">Octal (8)</option>
+                            <option value="16" data-i18n="tools.hex">Hexadecimal (16)</option>
+                        </select>
+                    </label>
+                </div>
+                <div id="base-result" class="tool-result"></div>
+            </details>
+
+            <details class="tool">
+                <summary data-i18n="tools.stats">List statistics</summary>
+                <label class="field">
+                    <span data-i18n="tools.statsInput">Numbers (separate with commas, spaces or line breaks)</span>
+                    <textarea id="stat-input" rows="3" spellcheck="false">12, 7, 3, 9, 7, 15, 4</textarea>
+                </label>
+                <div id="stat-result" class="tool-result"></div>
+            </details>
+
+        </section>
+    </div>
 </aside>
 
 </main>
 
 <footer class="calc-footer">
 
-    Powered by Deniz • Ovid Calculator
+    <span data-i18n="app.footer">Powered by Deniz • Ovid Calculator</span>
+    <span class="privacy-sep" aria-hidden="true">·</span>
+    <span class="privacy-mount"></span>
 
 </footer>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+<!-- ================= YARDIM ================= -->
+<div class="mission-modal" id="help-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="help-heading">
+    <div class="mission-box">
+        <div class="mission-header">
+            <h2 id="help-heading" data-i18n="help.heading">HOW DOES THIS WORK?</h2>
+            <button id="help-close" class="icon-btn" type="button" aria-label="Close" data-i18n-aria-label="help.close">✕</button>
+        </div>
+
+        <p class="mission-intro">
+            <span data-i18n="help.intro">Ovid is not an ordinary calculator: it tracks measurement error, units and exact values. All of it is optional — ignore it and it behaves like any other calculator.</span>
+        </p>
+
+        <div class="mission-body">
+            <div class="help-list">
+
+                <section class="help-item">
+                    <h3><span class="help-key">±σ</span> <span data-i18n="help.uncertTitle">Error bars</span></h3>
+                    <p data-i18n="help.uncertBody">Carries the uncertainty of your measurement through the calculation.</p>
+                    <code>5.2±0.1 × 3 = 15.6 ± 0.3</code>
+                </section>
+
+                <section class="help-item">
+                    <h3><span class="help-key" data-i18n="panel.units">Units</span> <span data-i18n="help.unitsTitle">Unit-aware maths</span></h3>
+                    <p data-i18n="help.unitsBody">Put a unit after a number; the result finds its own unit and rejects mismatched ones.</p>
+                    <code>5 km + 300 m = 5.3 km · 100 km / 2 h = 50 km/h</code>
+                </section>
+
+                <section class="help-item">
+                    <h3><span class="help-key">a/b</span> <span data-i18n="help.fractionTitle">Fraction mode</span></h3>
+                    <p data-i18n="help.fractionBody">Shows the exact value instead of a rounded decimal.</p>
+                    <code>1/3 + 1/6 = 1/2</code>
+                </section>
+
+                <section class="help-item">
+                    <h3><span class="help-key">⇢</span> <span data-i18n="help.stepTitle">Warp mode</span></h3>
+                    <p data-i18n="help.stepBody">Instead of jumping to the answer, it walks through the order of operations.</p>
+                    <code>2 + 3 × 4 → 2 + 12 → 14</code>
+                </section>
+
+                <section class="help-item">
+                    <h3><span class="help-key">↔</span> <span data-i18n="help.sliderTitle">"What if?"</span></h3>
+                    <p data-i18n="help.sliderBody">Tap a number on the display; it becomes a slider and the result follows it live.</p>
+                </section>
+
+                <section class="help-item">
+                    <h3><span class="help-key">fx</span> <span data-i18n="help.fxTitle">Scientific keys</span></h3>
+                    <p data-i18n="help.fxBodyPlain">Trigonometry, logarithms, powers, factorial, mod. 2nd opens the inverse functions.</p>
+                </section>
+
+                <section class="help-item">
+                    <h3><span class="help-key" data-i18n="panel.tools">Tools</span> <span data-i18n="help.toolsTitle">Number tools</span></h3>
+                    <p data-i18n="help.toolsBody">Prime factors, GCD/LCM, base conversion (2/8/10/16), list statistics.</p>
+                </section>
+
+                <section class="help-item">
+                    <h3><span class="help-key">📈</span> <span data-i18n="help.geoTitle">Analytic geometry</span></h3>
+                    <p data-i18n="help.geoBody">The graph icon above opens a separate page for functions, points and circles. Same engine.</p>
+                    <code>y = sin(x) · x² + y² = 9 · (2, 3)</code>
+                </section>
+
+                <section class="help-item">
+                    <h3><span class="help-key">A</span> <span data-i18n="help.sizeTitle">Size</span></h3>
+                    <p data-i18n="help.sizeBody">Scales the keys and text through three steps.</p>
+                </section>
+
+                <h3 class="mission-subhead" data-i18n="help.shortcuts">Keyboard shortcuts</h3>
+                <ul class="shortcut-list">
+                    <li><kbd>0-9</kbd> <span data-i18n="help.scDigits">digits</span></li>
+                    <li><kbd>+ − * / ^</kbd> <span data-i18n="help.scOps">operators</span></li>
+                    <li><kbd>( )</kbd> <span data-i18n="help.scParens">brackets</span></li>
+                    <li><kbd>sin cos ln</kbd> <span data-i18n="help.scFunctions">you can type function names</span></li>
+                    <li><kbd>km kg s</kbd> <span data-i18n="help.scUnits">you can type units</span></li>
+                    <li><kbd>Enter</kbd> <span data-i18n="help.scEnter">calculate</span></li>
+                    <li><kbd>Backspace</kbd> <span data-i18n="help.scBackspace">delete last character</span></li>
+                    <li><kbd>Delete</kbd> <span data-i18n="help.scDelete">clear everything</span></li>
+                    <li><kbd>Esc</kbd> <span data-i18n="help.scEscape">close panel / clear</span></li>
+                    <li><kbd>Ctrl+Z</kbd> <span data-i18n="help.scUndo">undo</span></li>
+                    <li><kbd>Ctrl+Y</kbd> <span data-i18n="help.scRedo">redo</span></li>
+                    <li><kbd>%</kbd> <span data-i18n="help.scPercent">percent (50+10% = 55)</span></li>
+                </ul>
+
+                <p class="mission-hint" data-i18n="help.footer">Click the result to copy it. The app works offline and can be installed on your phone.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= MISSION CONTROL ================= -->
+<div class="mission-modal" id="mission-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="mission-heading">
+    <div class="mission-box">
+
+        <div class="mission-header">
+            <h2 id="mission-heading" data-i18n="mission.heading">MISSION CONTROL</h2>
+            <button id="mission-close" class="icon-btn" type="button" aria-label="Close" data-i18n-aria-label="help.close">✕</button>
+        </div>
+
+        <p class="mission-intro">
+            <span data-i18n="mission.intro">Found a bug, or have an idea? Send it — anything we judge sensible and useful gets built, and your contribution goes on the Hall of Fame.</span>
+        </p>
+
+        <div class="mission-tabs" role="tablist">
+            <button class="mission-tab active" data-mtab="submit" role="tab" aria-selected="true" data-i18n="mission.tabSubmit">Contribute</button>
+            <button class="mission-tab" data-mtab="record" role="tab" aria-selected="false" data-i18n="mission.tabRecord">My record</button>
+            <button class="mission-tab" data-mtab="hall" role="tab" aria-selected="false" data-i18n="mission.tabHall">Hall of Fame</button>
+        </div>
+
+        <div class="mission-body">
+
+            <!-- SUBMIT -->
+            <section class="mission-pane active" id="mission-submit" role="tabpanel">
+                <form id="mission-form" novalidate>
+                    <label class="field">
+                        <span data-i18n="mission.username">Your username</span>
+                        <input id="mission-name" type="text" maxlength="20" placeholder="e.g. starhunter" data-i18n-placeholder="mission.usernamePlaceholder" autocomplete="nickname">
+                    </label>
+
+                    <label class="field">
+                        <span data-i18n="mission.type">What are you sending?</span>
+                        <select id="mission-type">
+                            <option value="bug" data-i18n="mission.typeBug">🐞 Report a bug — something is broken</option>
+                            <option value="idea" data-i18n="mission.typeIdea">💡 Propose a feature</option>
+                            <option value="improve" data-i18n="mission.typeImprove">⚡ Suggest an improvement — this could be better</option>
+                        </select>
+                    </label>
+
+                    <label class="field">
+                        <span data-i18n="mission.titleField">Title</span>
+                        <input id="mission-title" type="text" maxlength="80" placeholder="A short, clear title" data-i18n-placeholder="mission.titlePlaceholder">
+                    </label>
+
+                    <label class="field">
+                        <span data-i18n="mission.detail">Details</span>
+                        <textarea id="mission-detail" rows="4" maxlength="1200" placeholder="For a bug: what did you do, what did you expect, what happened? For an idea: what would it be good for?" data-i18n-placeholder="mission.detailPlaceholder"></textarea>
+                    </label>
+
+                    <button type="submit" class="mission-submit" data-i18n="mission.save">Save</button>
+                </form>
+
+                <div id="mission-feedback" class="mission-feedback" role="status" aria-live="polite"></div>
+            </section>
+
+            <!-- MY RECORD -->
+            <section class="mission-pane" id="mission-record" role="tabpanel">
+                <div class="rank-card">
+                    <div class="rank-head">
+                        <span class="rank-icon" id="rank-icon">🌑</span>
+                        <div>
+                            <div class="rank-title" id="rank-title">Rookie</div>
+                            <div class="rank-xp" id="rank-xp">0 XP</div>
+                        </div>
+                    </div>
+                    <div class="rank-bar"><div class="rank-bar-fill" id="rank-bar-fill"></div></div>
+                    <div class="rank-next" id="rank-next"></div>
+                </div>
+
+                <h3 class="mission-subhead" data-i18n="mission.badges">Badges</h3>
+                <ul class="badge-list" id="badge-list"></ul>
+
+                <h3 class="mission-subhead" data-i18n="mission.myContributions">My contributions</h3>
+                <ul class="entry-list" id="entry-list"></ul>
+            </section>
+
+            <!-- HALL OF FAME -->
+            <section class="mission-pane" id="mission-hall" role="tabpanel">
+                <p class="mission-hint" id="hall-hint"></p>
+                <ul class="hall-list" id="hall-list"></ul>
+                <div class="hall-updated" id="hall-updated"></div>
+            </section>
+
+        </div>
+    </div>
+</div>
+
+<script src="engine.js"></script>
+<script src="i18n.js"></script>
+<script src="privacy.js"></script>
+<script src="sky.js"></script>
 <script src="myJava.js"></script>
+<script src="community.js"></script>
 </body>
 </html>
