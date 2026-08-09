@@ -32,12 +32,51 @@
     --border-glow: rgba(159, 231, 255, 0.22);
     --ground: #05070d;
 
+    /* RGB-channel tokens: the same neutral tint used throughout the UI at
+       many different opacities (highlights and solid glass panels).
+       Keeping the channel itself swappable means every one of those
+       declarations flips polarity for light mode without hunting down
+       each opacity value individually. */
+    --hi-rgb: 255, 255, 255;
+    --panel-rgb: 8, 16, 28;
+    --text-rgb: 245, 251, 255;
+
     /* fluid sizing tokens: scale with viewport instead of hard breakpoint cliffs */
     --gap-sm: clamp(5px, 1.2vh, 9px);
     --gap-md: clamp(7px, 1.9vw, 14px);
     --btn-h: clamp(44px, 8.4vh, 68px);
     --sci-h: clamp(30px, 5vh, 42px);
     --display-h: clamp(88px, 13.5vh, 150px);
+}
+
+/* Light mode — the instrument by daylight rather than a different instrument.
+   Every hue keeps its identity (the same cyan and amber run through the
+   whole site) but is re-weighted for AA contrast on a pale ground: text
+   16:1, the cyan and amber accents both re-tuned past 4.5:1 against
+   --ground rather than eyeballed. */
+:root[data-theme="light"] {
+    /* Dark mode's surfaces are a faint white tint over a near-black ground —
+       barely-there is enough to read as "lifted" against near-total black.
+       A pale ground has no such headroom: surfaces have to be genuinely
+       opaque white glass or a key reads as empty space, not a button. */
+    --display-bg: rgba(255, 255, 255, 0.78);
+    --panel-bg: rgba(255, 255, 255, 0.88);
+    --button-bg: rgba(255, 255, 255, 0.62);
+    --button-hover: rgba(255, 255, 255, 0.88);
+    --sci-bg: rgba(255, 255, 255, 0.5);
+    --sci-hover: rgba(255, 255, 255, 0.72);
+    --operator-color: #096a82;
+    --accent-color: #a8540d;
+    --text-color: #12161f;
+    --muted-color: rgba(18, 22, 31, 0.68);
+    --border-glow: rgba(9, 106, 130, 0.32);
+    --ground: #e7edf3;
+
+    --hi-rgb: 255, 255, 255;
+    --panel-rgb: 255, 255, 255;
+    --text-rgb: 18, 22, 31;
+
+    color-scheme: light;
 }
 
 html {
@@ -54,7 +93,7 @@ body {
     overflow-y: auto;
     position: relative;
     isolation: isolate;
-    background-color: #05070d;
+    background-color: var(--ground);
     font-family: 'Orbitron', 'Segoe UI', sans-serif;
     color: var(--text-color);
 }
@@ -426,6 +465,23 @@ body {
     linear-gradient(180deg, rgba(4, 6, 12, .46) 0%, transparent 18%, transparent 72%, rgba(4, 6, 12, .60) 100%);
 }
 
+/* --- daylight veiling -----------------------------------------------------
+   Light mode is not a second nebula field painted stop-by-stop — it is the
+   same plate the way starlight actually behaves at dawn: brightened,
+   desaturated and thinned by atmosphere, with the moving stars faded almost
+   out. The composition underneath never changes. */
+:root[data-theme="light"] .sky {
+  filter: brightness(1.7) saturate(0.4) contrast(0.92);
+}
+:root[data-theme="light"] #skyflow {
+  opacity: 0.25;
+}
+:root[data-theme="light"] #skyflow::after {
+  background:
+    radial-gradient(ellipse 30% 40% at 50% 50%, rgba(238, 242, 246, 0.55), rgba(238, 242, 246, 0.20) 55%, rgba(238, 242, 246, 0) 80%),
+    radial-gradient(ellipse 130% 105% at 50% 50%, rgba(238, 242, 246, 0) 64%, rgba(238, 242, 246, 0.35) 100%);
+}
+
 /* ===========================================================================
    REDUCED MOTION — the sky holds its pose.
    =========================================================================== */
@@ -460,7 +516,7 @@ body {
     font-weight: 400;
     font-size: clamp(0.65rem, 2.2vw, 0.85rem);
     letter-spacing: 0.28em;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(var(--hi-rgb), 0.6);
     white-space: nowrap;
     flex-shrink: 0;
 }
@@ -570,14 +626,14 @@ body {
     -webkit-backdrop-filter: blur(18px) saturate(115%);
     box-shadow:
         0 24px 60px rgba(0, 0, 0, 0.5),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        inset 0 1px 0 rgba(var(--hi-rgb), 0.05);
 }
 
 .calculator:hover {
     transform: translateY(-3px);
     box-shadow:
         0 30px 70px rgba(0, 0, 0, 0.55),
-        inset 0 1px 0 rgba(255, 255, 255, 0.07);
+        inset 0 1px 0 rgba(var(--hi-rgb), 0.07);
 }
 
 /* ================= DISPLAY ================= */
@@ -640,7 +696,8 @@ body {
     font-size: 0.62rem;
     font-weight: 600;
     letter-spacing: 0.14em;
-    color: rgba(159, 231, 255, 0.6);
+    color: var(--operator-color);
+    opacity: 0.6;
 }
 
 #display .top,
@@ -656,6 +713,20 @@ body {
    chips (see .num-chip), so — unlike .bottom right below it — it overrides
    the shared rule above to lay out as wrapping flow text rather than a
    single ellipsis-truncated line. */
+/* Orbitron is a display face: striking for headings and short labels, but
+   its geometric, uniform-width digits are exactly what got hard to read at
+   a glance once real arithmetic was on screen. The numbers themselves use a
+   monospaced instrument-readout stack instead — the same family already
+   used for the analytic-geometry axis labels — with tabular figures so a
+   digit never changes width as the result updates. Orbitron stays
+   everywhere else, so the site keeps its identity. */
+#display .top,
+#display .bottom {
+    font-family: ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas,
+        'Roboto Mono', monospace;
+    font-variant-numeric: tabular-nums;
+}
+
 #display .top {
     display: flex;
     flex-wrap: wrap;
@@ -666,15 +737,15 @@ body {
     overflow: visible;
     font-size: clamp(0.85rem, 2.6vw, 1.15rem);
     font-weight: 500;
-    letter-spacing: 0.04em;
-    color: rgba(245, 251, 255, 0.72);
+    letter-spacing: 0;
+    color: rgba(var(--text-rgb), 0.72);
     direction: ltr;
 }
 
 #display .bottom {
     font-size: clamp(1.5rem, 6vw, 2.5rem);
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
     color: var(--text-color);
     transition: color 0.2s ease, opacity 0.2s ease;
 }
@@ -698,11 +769,11 @@ body {
     margin: 0 auto clamp(12px, 2.4vh, 22px);
     background: linear-gradient(
         90deg,
-        rgba(255, 255, 255, 0),
-        rgba(255, 255, 255, 0.35),
+        rgba(var(--hi-rgb), 0),
+        rgba(var(--hi-rgb), 0.35),
         rgba(159, 231, 255, 0.75),
-        rgba(255, 255, 255, 0.35),
-        rgba(255, 255, 255, 0)
+        rgba(var(--hi-rgb), 0.35),
+        rgba(var(--hi-rgb), 0)
     );
     box-shadow: 0 0 18px rgba(159, 231, 255, 0.22);
 }
@@ -811,7 +882,7 @@ button::before {
     background: linear-gradient(
         120deg,
         transparent,
-        rgba(255, 255, 255, 0.15),
+        rgba(var(--hi-rgb), 0.15),
         transparent
     );
     transition: 0.5s;
@@ -830,7 +901,7 @@ button:hover {
 
 button:active {
     transform: scale(0.92);
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 10px rgba(var(--hi-rgb), 0.1);
 }
 
 button:focus-visible {
@@ -840,13 +911,13 @@ button:focus-visible {
 
 /* a hairline top edge reads as a moulded key rather than a flat rectangle */
 .buttons button {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 1px 0 rgba(var(--hi-rgb), 0.05);
 }
 
 .buttons button:hover {
     box-shadow:
         0 10px 20px rgba(0, 0, 0, 0.45),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        inset 0 1px 0 rgba(var(--hi-rgb), 0.08);
 }
 
 /* NUMBERS */
@@ -865,7 +936,7 @@ button:focus-visible {
 /* EQUAL */
 .equal {
     width: var(--btn-h);
-    border: 2px solid rgba(255, 255, 255, 0.75);
+    border: 2px solid rgba(var(--hi-rgb), 0.75);
     border-radius: 50%;
     background: linear-gradient(135deg, var(--accent-color), #ff7a3d);
     color: #12151c;
@@ -891,7 +962,7 @@ button:focus-visible {
 #clear,
 #backspace,
 #plusminus {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(var(--hi-rgb), 0.05);
 }
 
 /* ================= HISTORY PANEL ================= */
@@ -999,7 +1070,7 @@ button:focus-visible {
     gap: 6px;
     padding: 4px;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(var(--hi-rgb), 0.04);
     flex-shrink: 0;
 }
 
@@ -1076,7 +1147,7 @@ button:focus-visible {
 .constant-item {
     padding: 10px 12px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--hi-rgb), 0.03);
     cursor: pointer;
     display: flex;
     flex-direction: column;
@@ -1141,7 +1212,7 @@ button:focus-visible {
     padding: 0 10px;
     border-radius: 10px;
     border: 1px solid rgba(159, 231, 255, 0.18);
-    background: rgba(8, 16, 28, 0.75);
+    background: rgba(var(--panel-rgb), 0.75);
     color: var(--text-color);
     font-family: inherit;
     font-size: 0.85rem;
@@ -1212,7 +1283,7 @@ button:focus-visible {
     gap: 2px;
     padding: 10px 12px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--hi-rgb), 0.03);
     cursor: pointer;
     transition: background 0.2s ease;
 }
@@ -1242,7 +1313,7 @@ button:focus-visible {
     transform: translate(-50%, 10px);
     padding: 10px 18px;
     border-radius: 999px;
-    background: rgba(8, 16, 28, 0.85);
+    background: rgba(var(--panel-rgb), 0.85);
     border: 1px solid rgba(159, 231, 255, 0.25);
     color: var(--text-color);
     font-size: 0.8rem;
@@ -1266,7 +1337,7 @@ button:focus-visible {
     text-align: center;
     font-size: clamp(0.58rem, 1.6vw, 0.75rem);
     letter-spacing: 0.12em;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(var(--hi-rgb), 0.5);
 }
 
 /* ================= ANIMATIONS ================= */
@@ -1382,6 +1453,8 @@ button:focus-visible {
     align-items: center;
     justify-content: center;
     padding: clamp(10px, 3vw, 28px);
+    /* the scrim behind a dialog stays dark in both themes — dimming the
+       page is the point, and a light-mode-tinted scrim would not dim it */
     background: rgba(2, 5, 10, 0.72);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
@@ -1405,7 +1478,7 @@ button:focus-visible {
     padding: clamp(16px, 3vw, 24px);
     border-radius: clamp(18px, 3vw, 26px);
     border: 1px solid rgba(159, 231, 255, 0.2);
-    background: rgba(8, 16, 28, 0.92);
+    background: rgba(var(--panel-rgb), 0.92);
     box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
     transform: translateY(12px) scale(0.98);
     transition: transform 0.25s ease;
@@ -1442,7 +1515,7 @@ button:focus-visible {
     gap: 6px;
     padding: 4px;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(var(--hi-rgb), 0.04);
     flex-shrink: 0;
 }
 
@@ -1493,7 +1566,7 @@ button:focus-visible {
     padding: 10px;
     border-radius: 10px;
     border: 1px solid rgba(159, 231, 255, 0.18);
-    background: rgba(8, 16, 28, 0.75);
+    background: rgba(var(--panel-rgb), 0.75);
     color: var(--text-color);
     font-family: inherit;
     font-size: 0.85rem;
@@ -1603,7 +1676,7 @@ button:focus-visible {
 .rank-bar {
     height: 7px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(var(--hi-rgb), 0.08);
     overflow: hidden;
 }
 
@@ -1635,7 +1708,7 @@ button:focus-visible {
     gap: 8px;
     padding: 9px 10px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--hi-rgb), 0.03);
     border: 1px solid transparent;
     opacity: 0.45;
     transition: opacity 0.2s ease, border-color 0.2s ease;
@@ -1674,7 +1747,7 @@ button:focus-visible {
 .entry {
     padding: 11px 12px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--hi-rgb), 0.03);
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -1700,7 +1773,7 @@ button:focus-visible {
     padding: 3px 8px;
     border-radius: 999px;
     white-space: nowrap;
-    background: rgba(255, 255, 255, 0.07);
+    background: rgba(var(--hi-rgb), 0.07);
     color: var(--muted-color);
 }
 
@@ -1748,7 +1821,7 @@ button:focus-visible {
 @keyframes entryArrive {
     0% { box-shadow: 0 0 0 rgba(248, 164, 95, 0); background: rgba(248, 164, 95, 0.16); }
     50% { box-shadow: 0 0 0 6px rgba(248, 164, 95, 0.12); }
-    100% { box-shadow: 0 0 0 rgba(248, 164, 95, 0); background: rgba(255, 255, 255, 0.03); }
+    100% { box-shadow: 0 0 0 rgba(248, 164, 95, 0); background: rgba(var(--hi-rgb), 0.03); }
 }
 
 .entry.arrived {
@@ -1775,7 +1848,7 @@ button:focus-visible {
     gap: 10px;
     padding: 11px 12px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--hi-rgb), 0.03);
     border: 1px solid transparent;
 }
 
@@ -1885,7 +1958,7 @@ button:focus-visible {
 .contrib-star .label {
     font-size: 0.66rem;
     letter-spacing: 0.1em;
-    color: rgba(245, 251, 255, 0.85);
+    color: rgba(var(--text-rgb), 0.85);
     white-space: nowrap;
     text-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
     opacity: 0;
@@ -1906,7 +1979,7 @@ button:focus-visible {
 .contrib-star:hover .core,
 .contrib-star:focus-visible .core {
     box-shadow:
-        0 0 14px rgba(255, 255, 255, 1),
+        0 0 14px rgba(var(--hi-rgb), 1),
         0 0 30px rgba(159, 231, 255, 0.8),
         0 0 60px rgba(248, 164, 95, 0.5);
 }
@@ -1987,7 +2060,7 @@ body.size-xlarge .app-title { font-size: clamp(0.85rem, 2.8vw, 1.05rem); }
 .tool {
     border: 1px solid rgba(159, 231, 255, 0.14);
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--hi-rgb), 0.03);
     padding: 10px 12px;
 }
 
@@ -2029,7 +2102,7 @@ body.size-xlarge .app-title { font-size: clamp(0.85rem, 2.8vw, 1.05rem); }
     gap: 10px;
     padding: 5px 8px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--hi-rgb), 0.03);
 }
 
 .tool-key {
@@ -2078,6 +2151,18 @@ body.size-xlarge .app-title { font-size: clamp(0.85rem, 2.8vw, 1.05rem); }
     background: rgba(248, 164, 95, 0.22);
     color: var(--accent-color);
     border-bottom-color: var(--accent-color);
+}
+
+/* Committed result line: pressing "=" used to swap the expression from
+   chip markup (padding + a dashed underline) to bare text with neither,
+   which shrank the line's box just enough to nudge the number above it up
+   by a couple of pixels. Reusing .num-chip's box for the committed text —
+   just non-interactive, undashed — keeps that line's height identical
+   whether it holds live chips or a settled expression, so nothing shifts. */
+.num-chip.committed {
+    cursor: default;
+    pointer-events: none;
+    border-bottom-color: transparent;
 }
 
 .whatif {
@@ -2154,7 +2239,7 @@ body.size-xlarge .app-title { font-size: clamp(0.85rem, 2.8vw, 1.05rem); }
 .help-item {
     padding: 11px 12px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--hi-rgb), 0.03);
     display: flex;
     flex-direction: column;
     gap: 5px;
@@ -2193,7 +2278,7 @@ body.size-xlarge .app-title { font-size: clamp(0.85rem, 2.8vw, 1.05rem); }
     font-size: 0.72rem;
     padding: 6px 9px;
     border-radius: 8px;
-    background: rgba(8, 16, 28, 0.7);
+    background: rgba(var(--panel-rgb), 0.7);
     color: var(--operator-color);
     overflow-wrap: anywhere;
 }
@@ -2218,8 +2303,8 @@ kbd {
     font-size: 0.66rem;
     padding: 3px 7px;
     border-radius: 6px;
-    background: rgba(255, 255, 255, 0.07);
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(var(--hi-rgb), 0.07);
+    border: 1px solid rgba(var(--hi-rgb), 0.14);
     border-bottom-width: 2px;
     color: var(--text-color);
     white-space: nowrap;
@@ -2248,11 +2333,11 @@ kbd {
     min-height: 0;
     padding: clamp(12px, 1.6vw, 18px);
     border-radius: clamp(16px, 2vw, 22px);
-    border: 1px solid rgba(159, 231, 255, 0.10);
-    background: linear-gradient(180deg, rgba(10, 18, 32, 0.55), rgba(6, 11, 20, 0.66));
+    border: 1px solid var(--border-glow);
+    background: var(--panel-bg);
     backdrop-filter: blur(18px) saturate(115%);
     -webkit-backdrop-filter: blur(18px) saturate(115%);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 24px 60px rgba(2, 4, 8, 0.35);
     overflow-y: auto;
 }
 
@@ -2262,8 +2347,8 @@ kbd {
     height: 42px;
     padding: 0 12px;
     border-radius: 12px;
-    border: 1px solid rgba(159, 231, 255, 0.2);
-    background: rgba(4, 9, 18, 0.8);
+    border: 1px solid var(--border-glow);
+    background: var(--display-bg);
     color: var(--text-color);
     font-family: inherit;
     font-size: 0.92rem;
@@ -2318,7 +2403,7 @@ kbd {
     gap: 9px;
     padding: 9px 10px;
     border-radius: 11px;
-    background: rgba(255, 255, 255, 0.035);
+    background: rgba(var(--hi-rgb), 0.035);
     transition: background 0.2s ease, opacity 0.2s ease;
 }
 
@@ -2373,11 +2458,11 @@ kbd {
     position: relative;
     min-height: 0;
     border-radius: clamp(16px, 2vw, 22px);
-    border: 1px solid rgba(159, 231, 255, 0.10);
-    background: rgba(4, 8, 16, 0.55);
+    border: 1px solid var(--border-glow);
+    background: var(--display-bg);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 24px 60px rgba(2, 4, 8, 0.35);
     overflow: hidden;
 }
 
@@ -2401,8 +2486,8 @@ kbd {
     position: absolute;
     padding: 5px 10px;
     border-radius: 8px;
-    background: rgba(4, 9, 18, 0.78);
-    border: 1px solid rgba(159, 231, 255, 0.14);
+    background: var(--panel-bg);
+    border: 1px solid var(--border-glow);
     font-size: 0.68rem;
     letter-spacing: 0.04em;
     color: var(--operator-color);
@@ -2489,7 +2574,7 @@ a.icon-btn {
     padding: clamp(14px, 2.4vw, 20px) clamp(16px, 2.6vw, 24px);
     border-radius: clamp(16px, 2.4vw, 22px);
     border: 1px solid rgba(159, 231, 255, 0.22);
-    background: rgba(8, 16, 28, 0.93);
+    background: rgba(var(--panel-rgb), 0.93);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     box-shadow: 0 26px 60px rgba(0, 0, 0, 0.55);
@@ -2669,8 +2754,8 @@ body.privacy-banner-up .calc-footer {
     gap: 14px;
     padding: 12px 14px;
     border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(var(--hi-rgb), 0.08);
+    background: rgba(var(--hi-rgb), 0.035);
 }
 
 .privacy-row-text {
@@ -2746,7 +2831,7 @@ body.privacy-banner-up .calc-footer {
     pointer-events: none;
     border-radius: 999px;
     border: 1px solid rgba(159, 231, 255, 0.3);
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(var(--hi-rgb), 0.06);
     transition: background 0.2s ease, border-color 0.2s ease;
 }
 
@@ -2841,7 +2926,7 @@ body.privacy-banner-up .calc-footer {
     padding: clamp(18px, 4vw, 34px);
     border-radius: clamp(18px, 3vw, 26px);
     border: 1px solid rgba(159, 231, 255, 0.18);
-    background: rgba(8, 16, 28, 0.82);
+    background: rgba(var(--panel-rgb), 0.82);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
@@ -2869,7 +2954,7 @@ body.privacy-banner-up .calc-footer {
 .privacy-doc p {
     font-size: 0.82rem;
     line-height: 1.75;
-    color: rgba(245, 251, 255, 0.82);
+    color: rgba(var(--text-rgb), 0.82);
 }
 
 .privacy-table-wrap {
@@ -2887,7 +2972,7 @@ body.privacy-banner-up .calc-footer {
 .privacy-doc td {
     text-align: left;
     padding: 10px 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(var(--hi-rgb), 0.08);
     vertical-align: top;
 }
 
@@ -2899,7 +2984,7 @@ body.privacy-banner-up .calc-footer {
 }
 
 .privacy-doc td {
-    color: rgba(245, 251, 255, 0.78);
+    color: rgba(var(--text-rgb), 0.78);
     line-height: 1.55;
 }
 
