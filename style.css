@@ -521,6 +521,29 @@ body {
     flex-shrink: 0;
 }
 
+/* Sub-pages (analytic geometry, the privacy notice) lead with the way back
+   to the calculator rather than burying it among page-specific tools —
+   the one link every visitor to a sub-page eventually wants, placed where
+   navigation convention already trains people to look for it. */
+.app-header-left {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 2vw, 14px);
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+.back-chip {
+    color: var(--text-color);
+    background: var(--button-bg);
+    border-color: var(--border-glow);
+}
+
+.back-chip:hover {
+    background: var(--button-hover);
+    color: var(--operator-color);
+}
+
 .header-tools {
     display: flex;
     align-items: center;
