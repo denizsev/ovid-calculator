@@ -162,9 +162,21 @@ function formatTick(value, step) {
     return text.replace(/0+$/, "").replace(/\.$/, "") || "0";
 }
 
+/* Canvas paint can't read CSS variables, so the grid keeps its own small
+   palette in step with the light/dark toggle instead. */
+function gridColours() {
+    const light = document.documentElement.getAttribute("data-theme") === "light";
+    return light
+        ? { minor: "rgba(9, 106, 130, 0.11)", major: "rgba(9, 106, 130, 0.24)",
+            axis: "rgba(7, 66, 82, 0.8)", label: "rgba(7, 66, 82, 0.75)" }
+        : { minor: "rgba(159, 231, 255, 0.055)", major: "rgba(159, 231, 255, 0.13)",
+            axis: "rgba(210, 238, 255, 0.55)", label: "rgba(210, 238, 255, 0.5)" };
+}
+
 function drawGrid() {
     const major = niceSpacing(84);
     const minor = major / 5;
+    const colours = gridColours();
 
     const left = toWorldX(0);
     const right = toWorldX(W);
@@ -174,7 +186,7 @@ function drawGrid() {
     ctx.lineWidth = 1;
 
     // minor
-    ctx.strokeStyle = "rgba(159, 231, 255, 0.055)";
+    ctx.strokeStyle = colours.minor;
     ctx.beginPath();
     for (let x = Math.ceil(left / minor) * minor; x < right; x += minor) {
         const sx = Math.round(toScreenX(x)) + 0.5;
@@ -187,7 +199,7 @@ function drawGrid() {
     ctx.stroke();
 
     // major
-    ctx.strokeStyle = "rgba(159, 231, 255, 0.13)";
+    ctx.strokeStyle = colours.major;
     ctx.beginPath();
     for (let x = Math.ceil(left / major) * major; x < right; x += major) {
         const sx = Math.round(toScreenX(x)) + 0.5;
@@ -202,7 +214,7 @@ function drawGrid() {
     // axes
     const ax = Math.round(toScreenX(0)) + 0.5;
     const ay = Math.round(toScreenY(0)) + 0.5;
-    ctx.strokeStyle = "rgba(210, 238, 255, 0.55)";
+    ctx.strokeStyle = colours.axis;
     ctx.lineWidth = 1.2;
     ctx.beginPath();
     if (ay > -1 && ay < H + 1) { ctx.moveTo(0, ay); ctx.lineTo(W, ay); }
@@ -210,7 +222,7 @@ function drawGrid() {
     ctx.stroke();
 
     // labels, pinned to the edge when the origin is off-screen
-    ctx.fillStyle = "rgba(210, 238, 255, 0.5)";
+    ctx.fillStyle = colours.label;
     ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
@@ -624,6 +636,8 @@ onLocaleChange(() => {
     renderList();
     draw();
 });
+
+document.addEventListener("ovid-theme-change", draw);
 
 // something on screen beats an empty plane and a blinking cursor
 ["y=sin(x)", "y=x^2/4-3", "(2,3)"].forEach(addObject);
