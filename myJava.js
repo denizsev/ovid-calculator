@@ -23,7 +23,31 @@ let soundOn = storeGet("ovid-sound") !== "off";
 let stepMode = storeGet("ovid-step") === "on";
 let secondMode = false;
 let memory = Number(storeGet("ovid-memory")) || 0;
-let history = JSON.parse(storeGet("ovid-history") || "[]");
+/* Reading history is the one startup step that parses free-form stored text,
+   and it runs at the top level of this file. An unguarded JSON.parse here
+   meant a single corrupt "ovid-history" value — a half-finished write, a
+   browser extension, a hand-edited devtools entry — threw before any of the
+   UI below was wired up, taking the whole calculator down with it. Anything
+   that is not a well-formed array of entries is discarded instead: losing a
+   history list is recoverable, losing the calculator is not. */
+function loadHistory() {
+    let parsed;
+    try {
+        parsed = JSON.parse(storeGet("ovid-history") || "[]");
+    } catch (e) {
+        return [];
+    }
+
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter(item =>
+        item && typeof item === "object" &&
+        typeof item.expr === "string" &&
+        typeof item.result === "string"
+    );
+}
+
+let history = loadHistory();
 
 const undoStack = [];
 const redoStack = [];
