@@ -3,11 +3,18 @@ name: Deploy to GitHub Pages
 # The site is plain static HTML/CSS/JS with no build step, so the workflow's
 # only job is to hand the right files to GitHub Pages and skip the rest of
 # the repo (.git, .github, docs) that was never meant to be served.
+#
+# main only, deliberately. Enabling Pages makes GitHub create the
+# "github-pages" environment with a protection rule that permits deployments
+# from the default branch alone. A working branch listed here therefore does
+# not produce a preview — it produces a run that is rejected at the
+# environment gate seconds after it starts, every single push, each one
+# reported as a failure by email. Publishing belongs to main; branches get
+# reviewed in a pull request instead.
 on:
   push:
     branches:
       - main
-      - claude/advanced-calculator-css-wv4ejl
   workflow_dispatch:
 
 permissions:
@@ -21,6 +28,11 @@ concurrency:
 
 jobs:
   deploy:
+    # Belt and braces for the manual trigger, which can be fired from any
+    # ref: a run started off main is skipped here, before it can reach the
+    # environment and be rejected. Skipped reads as "not applicable"; failed
+    # reads as "the site is broken", and only one of those is true.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
