@@ -62,15 +62,6 @@ function storeSet(key, value) {
     }
 }
 
-function storeRemove(key) {
-    delete memoryStore[key];
-    try {
-        window.localStorage.removeItem(key);
-    } catch (e) {
-        /* nothing to clean up */
-    }
-}
-
 
 // ================= STATE =================
 
