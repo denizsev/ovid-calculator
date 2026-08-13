@@ -57,8 +57,21 @@ self.addEventListener("fetch", event => {
     event.respondWith(
         fetch(request)
             .then(response => {
-                const copy = response.clone();
-                caches.open(CACHE).then(cache => cache.put(request, copy));
+                /* Only a genuine same-origin success is worth keeping. The
+                   previous version cached whatever came back, so a single
+                   transient 404 or 502 was written into the offline cache
+                   and then served from it indefinitely — the error outlived
+                   the outage that caused it. Opaque and redirect responses
+                   are skipped for the same reason: their status cannot be
+                   inspected, so they cannot be trusted as a fallback. */
+                if (response.ok && response.type === "basic") {
+                    const copy = response.clone();
+                    event.waitUntil(
+                        caches.open(CACHE)
+                            .then(cache => cache.put(request, copy))
+                            .catch(() => { /* eviction or quota — not fatal */ })
+                    );
+                }
                 return response;
             })
             .catch(() => caches.match(request).then(hit => hit || caches.match("./index.html")))

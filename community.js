@@ -486,6 +486,24 @@ function renderStarMap(people) {
     map.setAttribute("aria-hidden", eligible.length ? "false" : "true");
 }
 
+/* contributors.json is fetched at runtime, so its shape is an assumption
+   rather than a guarantee — a half-deployed or hand-edited file should
+   leave the hall empty, not throw partway through rendering. Anything that
+   is not a named entry is dropped, and xp is coerced to a real number so
+   the sort comparator can never see NaN. */
+function contributorsOf(data) {
+    const raw = data && Array.isArray(data.contributors) ? data.contributors : [];
+
+    return raw
+        .filter(p => p && typeof p === "object" && typeof p.name === "string" && p.name)
+        .map(p => ({
+            name: p.name,
+            xp: Number.isFinite(Number(p.xp)) ? Number(p.xp) : 0,
+            accepted: Number.isFinite(Number(p.accepted)) ? Number(p.accepted) : 0
+        }))
+        .sort((a, b) => b.xp - a.xp);
+}
+
 async function renderHall() {
     if (hallLoaded) return;
 
@@ -507,9 +525,7 @@ async function renderHall() {
     hallLoaded = true;
     list.textContent = "";
 
-    const people = (data.contributors || [])
-        .slice()
-        .sort((a, b) => (b.xp || 0) - (a.xp || 0));
+    const people = contributorsOf(data);
 
     renderStarMap(people);
 
@@ -660,12 +676,7 @@ onLocaleChange(() => {
         const response = await fetch("contributors.json", { cache: "no-cache" });
         if (!response.ok) return;
 
-        const data = await response.json();
-        const people = (data.contributors || [])
-            .slice()
-            .sort((a, b) => (b.xp || 0) - (a.xp || 0));
-
-        renderStarMap(people);
+        renderStarMap(contributorsOf(await response.json()));
     } catch (e) {
         /* offline first run: the sky simply stays empty */
     }

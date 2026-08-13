@@ -2,8 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- Every asset this site loads is served from its own origin — no CDN,
+         no font host, no analytics — so the policy can be the strictest one
+         CSP allows: deny everything, then re-allow 'self' per directive.
+         There is no 'unsafe-inline' anywhere because there is no inline
+         script or style in the markup to need it. base-uri blocks <base>
+         injection; form-action blocks form-based exfiltration (both forms
+         here are preventDefault-handled and never actually submit).
+         frame-ancestors is deliberately absent: it is ignored in a meta
+         policy, and GitHub Pages cannot send real headers — see SECURITY.md. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+    <meta name="referrer" content="no-referrer">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" data-i18n="app.description" content="Ovid Calculator — a space-themed scientific calculator with live results, unit-aware maths, exact fractions and offline support.">
+    <!-- kept in step with the light/dark toggle by theme.js -->
     <meta name="theme-color" content="#05070d">
     <title data-i18n="app.pageTitle">Ovid Calculator</title>
     <link rel="manifest" href="manifest.json">

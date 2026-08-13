@@ -1,14 +1,16 @@
 {
   "name": "Ovid Calculator",
   "short_name": "Ovid",
-  "description": "Uzay temalı bilimsel hesap makinesi — anlık sonuç, birim çevirici, evrensel sabitler ve çevrimdışı destek.",
+  "description": "A space-themed scientific calculator with live results, unit-aware maths, exact fractions, analytic geometry and offline support.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#05070d",
   "theme_color": "#05070d",
-  "lang": "tr",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "productivity", "utilities"],
   "icons": [
     {
       "src": "images/icon-192.png",
@@ -21,6 +23,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
