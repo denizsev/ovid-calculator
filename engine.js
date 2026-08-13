@@ -62,15 +62,6 @@ function storeSet(key, value) {
     }
 }
 
-function storeRemove(key) {
-    delete memoryStore[key];
-    try {
-        window.localStorage.removeItem(key);
-    } catch (e) {
-        /* nothing to clean up */
-    }
-}
-
 
 // ================= STATE =================
 
@@ -89,6 +80,15 @@ const VARIABLES = Object.create(null);
 
 function setVariable(name, value) { VARIABLES[name] = value; }
 function clearVariables() { for (const k in VARIABLES) delete VARIABLES[k]; }
+
+/* Every lookup table below is keyed by a name the user typed, so a plain
+   object literal would answer for inherited members too: FUNCTIONS
+   ["constructor"] returned Object, and UNITS["hasOwnProperty"] made
+   "5 hasOwnProperty" parse as a dimensioned quantity that evaluated to NaN
+   instead of being rejected. Stripping the prototype makes a lookup mean
+   only what the table actually declares — the same reason VARIABLES above
+   was already built this way. */
+const dict = entries => Object.assign(Object.create(null), entries);
 
 // =====================================================================
 // QUANTITY — a value that carries its uncertainty and its dimensions.
@@ -381,7 +381,7 @@ function radPerUnit() {
 /* `domain` returns an error message when the input is outside the function's
    domain. Without it these silently produced NaN and the user was told
    only "Undefined result", with no idea which argument was at fault. */
-const FUNCTIONS = {
+const FUNCTIONS = dict({
     sin: { f: x => Math.sin(toRadians(x)), df: x => Math.cos(toRadians(x)) * radPerUnit() },
     cos: { f: x => Math.cos(toRadians(x)), df: x => -Math.sin(toRadians(x)) * radPerUnit() },
     tan: {
@@ -420,7 +420,7 @@ const FUNCTIONS = {
         domain: x => x < 0 ? t("err.negativeRoot") : null
     },
     abs: { f: Math.abs, df: x => Math.sign(x) }
-};
+});
 
 /* An exact square root stays exact: sqrt(4/9) is 2/3, not 0.666… */
 function ratSqrt(r) {
@@ -469,7 +469,7 @@ function qApplyFunction(name, a) {
 // UNITS
 // =====================================================================
 
-const UNITS = {
+const UNITS = dict({
     // length
     m: { f: 1, d: [1, 0, 0, 0] },
     km: { f: 1000, d: [1, 0, 0, 0] },
@@ -510,12 +510,12 @@ const UNITS = {
     MB: { f: 1048576, d: [0, 0, 0, 1] },
     GB: { f: 1073741824, d: [0, 0, 0, 1] },
     TB: { f: 1099511627776, d: [0, 0, 0, 1] }
-};
+});
 
-const CONSTANTS = {
+const CONSTANTS = dict({
     "π": Math.PI,
     "e": Math.E
-};
+});
 
 // operator: [precedence, associativity, arity]
 const OPERATORS = {
