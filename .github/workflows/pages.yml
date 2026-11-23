@@ -45,7 +45,7 @@ jobs:
         run: |
           mkdir _site
           shopt -s extglob
-          cp -r !(_site|.git|.github|ROADMAP.md) _site/
+          cp -r !(_site|.git|.github|ROADMAP.md|notes) _site/
           touch _site/.nojekyll
 
       - name: Configure Pages

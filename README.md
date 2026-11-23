@@ -60,7 +60,7 @@ Every push to `main` deploys to GitHub Pages through [`.github/workflows/pages.y
 
 ## More
 
-- [ROADMAP.md](ROADMAP.md): research notes and next steps
+- [ROADMAP.md](ROADMAP.md): what is done and what comes next
 - [SECURITY.md](SECURITY.md): threat model
 
 ## License
